@@ -1,0 +1,196 @@
+---
+title: "JUnit 으로 테스트하기"
+excerpt: "JUnit 으로 테스트 환경을 만들어 봅니다."
+
+header:
+  overlay_image: https://images.unsplash.com/photo-1501785888041-af3ef285b470?ixlib=rb-1.2.1&ixid=eyJhcHBfaWQiOjEyMDd9&auto=format&fit=crop&w=1350&q=80
+  overlay_filter: 0.5
+
+tags:
+  - Java
+  - Spring
+  - JUnit
+
+toc: true
+toc_label: "table of content"
+toc_icon: "bars"
+toc_sticky: true
+---
+
+## JUnit 으로 테스트하기
+
+- TDD(Test-driven Development) : 테스트 주도 개발에서 사용하지만, 코드의 유지보수 및 운영 환경에서의 에러를 미리 방지하기 위해서 단위 별로 검증하는 테스트 프레임워크
+
+  - 단위테스트: 작성한 코드가 기대하는 대로 동작을 하는지 검증하는 절차
+  - JUnit: Java 기반의 단위 테스트를 위한 프레임워크. Annotation 기반으로 테스트를 지원하며, Assert 를 통하여 (예상, 실제) 를 통해 검증.
+
+<br/>
+
+---
+
+REST API 에 적용해보기 전에 간단한 예제로 어떤 흐름으로 동작하는지 확인해본다.
+
+```java
+public interface ICalculator {
+  int sum(int x, int y);
+  int sub(int x, int y);
+}
+```
+
+```java
+public class SimpleCalculator {
+  @Override
+  public int sum(int x, int y) {
+    return x + y;
+  }
+
+  @Override
+  public int sub(int x, int y) {
+    return x - y;
+  }
+}
+```
+
+아주 간단한 계산기 예제 :) 우리는 이것을 테스트해보기 위해서는 main 함수를 사용해야 했었다.
+
+```java
+public class Main {
+  public static void main(String[] args) {
+    SimpleCalculator simpleCalculator = new SimpleCalculator();
+    System.out.println(simpleCalculator.sum(1, 2));  // -> 3
+  }
+}
+```
+
+오직 테스트를 위한 코드를 main 함수에 적었다 지웠다 하는 것은 조금 문제가 될 것 같다. 그래서 따로 테스트를 위한 객체를 사용하고 싶다.
+
+IntelliJ 에서 프로젝트를 생성한 후 src 디렉토리를 보면 main 디렉토리와 test 디렉토리가 나누어져 있는 것을 볼 수 있다. 우리의 테스트 코드는 test 디렉토리에 작성한다.
+
+```java
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
+
+public class SimpleCalculatorTest implements ICalculator {
+
+  @Test
+  public void sumTest() {
+    SimpleCalculator simpleCalculator = new SimpleCalculator();
+    Assertions.assertEquals(20, simpleCalculator.sum(10, 10));
+  }
+
+  @Test
+  public void subTest() {
+    SimpleCalculator simpleCalculator = new SimpleCalculator();
+    Assertions.assertEquals(0, simpleCalculator.minus(10, 10));
+  }
+}
+```
+
+각 메서드에 `@Test` 어노테이션을 사용했고, 메서드 내부에서는 Assertions 객체의 `assertEquals()` 메서드를 사용하여 `10 + 10` 연산의 결과는 20인가, `10 - 10` 연산의 결과는 0 인가를 검증한다.
+
+<br/>
+
+---
+
+## @Mock
+
+단위 테스트를 할 때 메서드가 제어하기 어려운 것들, 가령 데이터베이스나 다른 네트워크 등이 의존하고 있다면, 테스트가 매우 어려워 진다. 즉, 코드가 다른 시스템의 일부분에 많이 얽혀있고 의존하고 있다면 단위 테스트를 하기란 매우 어려운 일이다. 이 것을 돕기 위한 것이 Mock 이다.
+
+Mock 은 메서드가 의존하고 있는 객체의 가짜를 만들어 사용하는 방법이다. 아래와 같은 상황에 사용하면 좋다.
+
+- 테스트 작성을 위한 환경 구축이 어려운 경우
+- 테스트가 특정 경우나 순간에 의존적인 경우
+- 테스트 시간이 오래 걸리는 경우
+- 개인 PC의 서능이나 서버의 성능문제로 오래 걸릴 수 있는 경우 시간을 단축해야 하는 경우
+
+이해를 위한 간단한 코드 예제를 살펴보자. 위에서 작성한 계산기 코드를 약간 변형해서 환율 계산기를 만든다고 치자. 환율 정보는 아무개 서버로부터 받아온다고 가정한다.
+
+```java
+/* 서버로부터 달러 환율을 가져오는 유사 코드 */
+public class MarketApi {
+  public void getDollarExchangeRate() {
+    return 1300;
+  }
+}
+```
+
+```java
+public class DollarCalculator implements ICalculator {
+  private int cost;
+  private MarketApi marketApi;
+
+  public DollarCalculator(MarketApi marketApi) {
+    this.marketApi = marketApi;
+  }
+
+  public void initiate() {
+    this.cost = marketApi.getDollarExchangeRate();
+  }
+
+  @Override
+  public int sum(int x, int y) {
+    x *= cost;
+    y *= cost;
+    return x + y;
+  }
+
+  @Override
+  public int sub(int x, int y) {
+    x *= cost;
+    y *= cost;
+    return x - y;
+  }
+}
+```
+
+이를 테스트해보기 위해서 main 함수에 코드를 작성하면 아래와 같을 것이다.
+
+```java
+public class Main {
+  public static void main(String[] args) {
+
+    DollarCalculator dollarCalculator = new DollarCalculator(new MarketApi());
+
+    dollarCalculator.initiate();  // <- 여기서 API 호출이 일어남
+
+    System.out.println(dollarCalculator.sum(1, 1));  // -> 2600
+    System.out.println(dollarCalculator.sub(2, 1));  // -> 1300
+  }
+}
+```
+
+하지만 이러한 방식으로 테스트를 하게 되면 매 테스트마다 `MarketApi` 로 API 호출을 하게 되고, 어떻게 보면 이러한 호출 또한 비용이다.
+
+이제 문제가 무엇인지 알았으니 Mock 을 사용해보자. test 디렉토리에 새로운 객체를 생성하고 거기서 테스트 해본다.
+
+```java
+@ExtendsWith(MockitoExtension.class)
+public class DollarCalculatorTest {
+
+  @Mock
+  public private marketApi;  // Mock 객체로 선언
+
+  /* 원래 marketApi.getDollarExchangeRate 를 호출하면 1300 이 반환되지만,
+   * getDollarExchangeRate 가 호출될 때, 1100 이 반환되도록 하드코딩.
+   */
+  @BeforeEach
+  public void init() {
+    Mockito.lenient().when(marketApi.getDollarExchangeRate()).thenReturn(1100);
+  }
+
+  @Test
+  public void dollarSumTest() {
+    DollarCalculator dollarCalculator = new DollarCalculator(new MarketApi());
+
+    /* 이 부분에서 marketApi.getDollarExchangeRate() 가 호출되고, 원래라면 1300 이 cost 에 set 되지만, 1100 이 들어가게 됨. */
+    dollarCalculator.getDollarExchangeRate();
+
+    // 따라서 $1 + $1 = 2200원이 되고 이 테스트는 성공하게 된다.
+    Assertions.assertEquals(2200, dollarCalculator.sum(1, 1));
+  }
+}
+```
+
+`@BeforeEach` 가 조금 생소할 수 있음. 나중에 또 정리해봄.
+
+- [JUnit5 기본 어노테이션](https://sas-study.tistory.com/314)

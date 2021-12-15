@@ -1,0 +1,250 @@
+---
+title: "Sysbench - DB 성능 테스트"
+excerpt: "MySQL, MariaDB, PostgreSQL 의 성능 테스트를 할 수 있는 Sysbench 알아봅니다."
+
+header:
+  overlay_image: https://images.unsplash.com/photo-1501785888041-af3ef285b470?ixlib=rb-1.2.1&ixid=eyJhcHBfaWQiOjEyMDd9&auto=format&fit=crop&w=1350&q=80
+  overlay_filter: 0.5
+
+tags:
+  - Sysbench
+
+toc: true
+toc_label: "table of content"
+toc_icon: "bars"
+toc_sticky: true
+---
+
+## 참고 문서
+
+- [Sysbench 공식 github repository](https://github.com/akopytov/sysbench)
+- [Sysbench 를 이용한 MySQL 성능 테스트](https://choelhee.tistory.com/3)
+- [Sysbench - MySQL 성능 측정 툴 (MySQL 벤치마크)](https://hoing.io/archives/1867)
+- [Sysbench를 이용한 MySQL OLTP 성능 측정](https://cslab.cbnu.ac.kr/board/bbs/board.php?bo_table=libfaq&wr_id=159&page=7)
+- [[Performance]Sysbench 설치 및 사용방법](https://myinfrabox.tistory.com/65)
+- [MySQL sysbench 부하테스트](https://blog.sengwoolee.dev/117)
+- [[성능 테스트]sysbench 내 서버 성능을 보자(for mac or linux)](https://imcreator.tistory.com/89)
+
+<br/>
+
+## Sysbench
+
+LUA 스크립트를 이용하고 multi-thread 방식을 지원하는 벤치마크 툴 입니다. MySQL/MariaDB 데이터베이스에서 주로 사용하는 오픈 소스 벤치마킹 프로그램이며 추가적으로 CPU에서 디스크 IO, 메모리 성능 등의 시스템 테스트도 가능합니다. 또한 PostgreSQL 에서 벤치마킹을 지원합니다.
+
+[공식홈페이지 - https://github.com/akopytov/sysbench](https://github.com/akopytov/sysbench)
+<br/>
+
+---
+
+## 설치
+
+- 설치 프로그램을 이용한 설치
+
+```bash
+# ubuntu
+$ apt-get install sysbench
+
+# redhat 계열
+$ yum -y install sysbench
+```
+
+- 공식 Github 페이지에서 다운로드
+
+```bash
+$ wget https://github.com/akopytov/sysbench/archive/master.zip
+$ cd sysbench-master
+```
+
+macOS 도 지원합니다.
+
+```bash
+# Add --with-postgresql if you need PostgreSQL support
+brew install sysbench
+```
+
+<br/>
+
+---
+
+## Dependency 패키지 설치
+
+- Debian/Ubuntu 의 경우
+
+```bash
+apt -y install make automake libtool pkg-config libaio-dev
+
+# For MySQL support
+apt -y install libmysqlclient-dev libssl-dev
+
+# For PostgreSQL support
+apt -y install libpq-dev
+```
+
+- CentOS 의 경우
+
+```bash
+yum -y install make automake libtool pkgconfig libaio-devel
+
+# For MySQL support, replace with mysql-devel on RHEL/CentOS 5
+yum -y install mariadb-devel openssl-devel
+
+# For PostgreSQL support
+yum -y install postgresql-devel
+```
+
+- macOS 의 경우
+
+```bash
+brew install automake libtool openssl pkg-config
+
+# For MySQL support
+brew install mysql
+
+# For PostgreSQL support
+brew install postgresql
+
+# openssl is not linked by Homebrew, this is to avoid "ld: library not found for -lssl"
+export LDFLAGS=-L/usr/local/opt/openssl/lib
+```
+
+마지막으로 빌드하고 설치해줍니다.
+
+```bash
+./autogen.sh
+# Add --with-pgsql to build with PostgreSQL support
+./configure
+make -j
+make install
+```
+
+<br/>
+
+---
+
+## MySQL 서버 성능 테스트
+
+일반적으로 sysbench 를 이용한 테스트는 3단계로 진행됩니다.
+
+1. prepare
+2. run
+3. cleanup
+
+문법은 간단합니다
+
+`sysbench [options]... [testname] [command]`
+
+자세한 내용은 `sysbench --help` 를 통해 확인할 수 있습니다.
+
+그리고 테스트 할 데이터베이스 환경이 있어야 합니다. MySQL 을 테스트할 것이니 터미널로 접속하여 1)테스트DB 2)테스트유저와 비밀번호 를 생성해줍니다.
+
+```sql
+CREATE DATABASE sysbench;
+CREATE USER sysbench@'localhost' IDENTIFIED BY 'password';
+GRANT ALL PRIVILEGES ON *.* to sysbench@'localhost' IDENTIFIED BY 'password';
+FLUSH PRIVILEGES;
+```
+
+<br/>
+
+1. Prepare
+
+```bash
+sysbench \
+--mysql-host=localhost \
+--mysql-port=3306 \
+--mysql-user=sysbench \
+--mysql-password=sysbench \
+--mysql-db=sysbench \
+--table-size=5000000 \
+--tables=5 \
+./oltp_read_only.lua prepare
+```
+
+옵션 이름을 통해 의미를 파악하기 쉽습니다. table-size 는 테이블 당 생성할 레코드의 수이며, --tables 는 생성할 테이블의 수 입니다. 위 커맨드를 입력한 후에 실제 DB 를 보면 5개의 테이블이 생성되고 그 안에 500만개의 레코드가 있는 것을 확인할 수 있습니다.
+
+./oltp_read_only.lua 와 같은 [testname] 에 해당하는 LUA 스크립트는 차후에 더 깊게 알아 볼 기회가 있으면 그 때 알아보겠습니다.
+
+<br/>
+
+2. Run
+
+```bash
+sysbench \
+> --mysql-host=localhost \
+> --mysql-port=3306 \
+> --mysql-user=sysbench \
+> --report-interval=2 \
+> --mysql-password=sysbench \
+> --mysql-db=sysbench \
+> --table-size=5000000 \
+> --threads=4 \
+> --tables=5 \
+> ./oltp_read_only.lua run
+```
+
+비슷한 방식으로 run 을 실행합니다. --table-size 는 그대로 500만개를 생성하고, threads 는 4개로 설정하여 멀티스레드 환경에서의 성능을 확인해보도록 하겠습니다.
+
+```bash
+# 결과
+Running the test with following options:
+Number of threads: 4
+Report intermediate results every 2 second(s)
+Initializing random number generator from current time
+
+
+Initializing worker threads...
+
+Threads started!
+
+[ 2s ] thds: 4 tps: 3487.69 qps: 55829.94 (r/w/o: 48852.57/0.00/6977.37) lat (ms,95%): 1.25 err/s: 0.00 reconn/s: 0.00
+[ 4s ] thds: 4 tps: 3508.76 qps: 56118.08 (r/w/o: 49100.57/0.00/7017.51) lat (ms,95%): 1.25 err/s: 0.00 reconn/s: 0.00
+[ 6s ] thds: 4 tps: 3523.37 qps: 56392.45 (r/w/o: 49345.70/0.00/7046.74) lat (ms,95%): 1.23 err/s: 0.00 reconn/s: 0.00
+[ 8s ] thds: 4 tps: 3522.35 qps: 56361.67 (r/w/o: 49316.96/0.00/7044.71) lat (ms,95%): 1.23 err/s: 0.00 reconn/s: 0.00
+SQL statistics:
+    queries performed:
+        read:                            491372
+        write:                           0
+        other:                           70196
+        total:                           561568
+    transactions:                        35098  (3509.12 per sec.)
+    queries:                             561568 (56145.99 per sec.)
+    ignored errors:                      0      (0.00 per sec.)
+    reconnects:                          0      (0.00 per sec.)
+
+General statistics:
+    total time:                          10.0009s
+    total number of events:              35098
+
+Latency (ms):
+         min:                                    0.96
+         avg:                                    1.14
+         max:                                    4.99
+         95th percentile:                        1.25
+         sum:                                39970.28
+
+Threads fairness:
+    events (avg/stddev):           8774.5000/11.06
+    execution time (avg/stddev):   9.9926/0.00
+```
+
+명령을 실행한 후에 결과화면을 볼 수 있습니다. 10초간 총 약 56만개의 쿼리가 실행되었고, 35098개의 transaction이 초당 3509.12개 처리되었음을 알 수 있습니다. 아래 Latency (지연시간) 를 ms 단위로 볼 수도 있습니다.
+
+<br/>
+
+3. cleanup
+
+성능 테스트가 끝났으니, 생성된 가상 데이터를 삭제해줍니다.
+
+```bash
+sysbench \
+--mysql-host=localhost \
+--mysql-port=3306 \
+--mysql-user=sysbench \
+--report-interval=2 \
+--mysql-password=sysbench \
+--mysql-db=sysbench \
+--table-size=5000000 \
+--threads=4 \
+--tables=5 \
+./oltp_read_only.lua cleanup
+```

@@ -1,0 +1,333 @@
+---
+title: "JUnit 으로 테스트하기 (2)"
+excerpt: "Spring Boot 개발 환경에서 단위 테스트 하는 방법을 알아봅니다."
+
+header:
+  overlay_image: https://images.unsplash.com/photo-1501785888041-af3ef285b470?ixlib=rb-1.2.1&ixid=eyJhcHBfaWQiOjEyMDd9&auto=format&fit=crop&w=1350&q=80
+  overlay_filter: 0.5
+
+tags:
+  - Java
+  - Spring
+  - JUnit
+
+toc: true
+toc_label: "table of content"
+toc_icon: "bars"
+toc_sticky: true
+---
+
+## JUnit 으로 테스트하기 (2)
+
+component 로 계산기를 계속 사용합니다.
+
+```java
+public interface ICalculator {
+
+  int sum(int x, int y);
+  int minus(int x, int y);
+  void init();
+
+}
+```
+
+DollarCalculator 는 스프링에서 관리하는 빈 임을 선언. `@RequiredArgsConstructor` 의 경우 초기화 되지 않은 final 필드나 `@NonNull` 이 붙은 필드에 대해 생성자를 생성해 준다. 의존성 주입 편의성을 위해 붙힘. 현재 MarketApi 의 `connect()` 메서드를 사용하기 위해 MarketApi 에 의존하고 있다.
+
+```java
+@Component
+@RequiredArgsConstructor
+public class DollarCalculator implements ICalculator {
+
+  private int price = 1;
+  private final MarketApi marketApi;
+
+  @Override
+  public void init() {
+    this.price = marketApi.connect();
+  }
+
+  @Override
+  public int sum(int x, int y) {
+    x *= price;
+    y *= price;
+    return x + y;
+  }
+
+  @Override
+  public int minus(int x, int y) {
+    x *= price;
+    y *= price;
+    return x - y;
+  }
+}
+```
+
+MarketApi 역시 스프링에서 관리하는 빈으로 설정하기 위해 `@Component` 를 붙힘.
+
+```java
+@Component
+public class MarketApi {
+  public int connect() {
+    return 1100;
+  }
+}
+```
+
+DollarCalculator 를 테스트 해 볼 Controller 를 생성. 이 역시 DollarCalculator 에 의존하기 때문에 `@RequiredArgsConstructor` 를 사용한다.
+
+```java
+@RestController
+@RequestMapping("/api")
+@RequiredArgsConstructor
+public class CalculatorApiController {
+
+  private final DollarCalculator dollarCalculator;
+
+  @GetMapping("/sum")
+  public int sum(@RequestParam int x, @RequestParam int y) {
+    dollarCalculator.init();
+    return dollarCalculator.sum(x, y);
+  }
+}
+```
+
+`http://localhost:8080/api/sum?x=10&y=10` 의 테스트 결과는 22000!
+
+위와 같은 한 단위의 API 를 JUnit 으로 테스트 하는 법을 알아보자. 한 가지 유의할 점은 테스트할 객체의 디렉토리 경로가 main 디렉토리 내에서의 경로와 같아야 한다는 점이다.
+
+```
+.
+├── main
+│   ├── java
+│   │   └── com
+│   │       └── example
+│   │           └── springcalculator
+│   │               ├── SpringCalculatorApplication.java
+│   │               ├── component
+│   │               │   ├── DollarCalculator.java
+│   │               │   ├── ICalculator.java
+│   │               │   └── MarketApi.java
+│   │               └── controller
+│   │                   └── CalculatorApiController.java
+└── test
+    └── java
+        └── com
+            └── example
+                └── springcalculator
+                    ├── SpringCalculatorApplicationTests.java
+                    ├── component
+                    │   └── DollarCalculatorTest.java
+                    └── controller
+                        └── CalculatorApiControllerTest.java
+```
+
+먼저 API 호출 테스트 말고 일반 객체를 스프링에서 테스트 하는 법을 보자.
+
+<br/>
+
+---
+
+## 일반 객체를 스프링에서 테스트
+
+```java
+@SpringBootTest  // 스프링부트테스트 :)
+@Import({MarketApi.class, DollarCalculator.class})  // 사용할 객체들을 import
+public class DollarCalculatorTest {
+
+  @MockBean  // @Mock 대신 @MockBean
+  private MarketApi marketApi;
+
+  @Autowired
+  private DollarCalculator dollarCalculator;
+
+  @Test
+  public void dollarCalculatorTest() {
+    Mockito.when(marketApi.connect()).thenReturn(1300);
+    dollarCalculator.init();
+
+    int sum = dollarCalculator.sum(10, 10);
+    Assertions.assertEquals(26000, sum);
+  }
+}
+```
+
+위와 같이 사용하면 된다. 일반 자바 프로젝트에서 테스트 하는 법과 아주 크게 다를 것은 없지만 스프링다워 졌다 정도로 표현 가능할 듯.
+
+<br/>
+
+---
+
+## API Controller 를 테스트
+
+```java
+@WebMvcTest(CalculatorApiController.class)
+@AutoConfigureWebMvc
+@Import(DollarCalculator.class)
+public class CalculatorApiControllerTest {
+  @MockBean
+  private MarketApi marketApi;
+
+  @Autowired
+  private MockMvc mockMvc;
+
+  @BeforeEach
+  public void init() {
+    Mockito.when(marketApi.connect()).thenReturn(3000);
+  }
+
+  @Test
+  public void sumTest() throws Exception {
+    mockMvc.perform(
+        MockMvcRequestBuilders.get("http://localhost:8080/api/sum")
+            .queryParam("x", "10")
+            .queryParam("y", "10")
+    ).andExpect(
+        MockMvcResultMatchers.status().isOk()
+    ).andExpect(
+        MockMvcResultMatchers.content().string("60000")
+    ).andDo(MockMvcResultHandlers.print());
+  }
+}
+```
+
+`@WebMvcTest` 는 MVC를 위한 테스트를 위한 어노테이션. 웹에서 테스트하기 힘든 컨트롤러를 테스트 하는데 적합하다. Security 와 Filter 까지 자동으로 테스트하면서도 `@SpringBootTest` 보다 가볍다는 장점이 있다. <br/>
+`@AutoConfigureWebMvc` 는 MVC와 관련된 Bean 을 올린다. <br/>
+
+`sumTest()` 메서드에서 본격적인 테스트를 진행한다. mockMvc 객체의 `perform()`, `andExpect()`, `andDo()` 메서드들을 이어붙혀 사용하는 것을 볼 수 있다. `perform()` 메서드의 매개변수로 MockHttpServletRequestBuilder 객체를 넘겨주는데 간단히 생각해서 `http://localhost:8080/api/sum?x=10&y=10` 이라는 uri 를 만들어서 넘겨줬다 생각하자. 그리고 `andExpect()` 은 이름에서 예상할 수 있듯이, 매개변수로 받는 값이 결과일 것이라 예상한다고 명시하는 것이다. `andDo()` 는 테스트가 끝나고 하는 일을 정의.
+
+POST나 PUT처럼 보통 JSON 형태의 request body 를 보내는 http 메서드 같은 경우는 조금 다르다. dto 패키지를 생성하고 Req 객체를 정의하자.
+
+```java
+@Data
+@AllArgsConstructor
+@NoArgsConstructor
+public class Req {
+  private int x;
+  private int y;
+}
+```
+
+위 코드는 아래와 같은 json 형태를 정의.
+
+```json
+{
+  "x": 10,
+  "y": 10
+}
+```
+
+Res 객체도 만들자
+
+```java
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+public class Res {
+  private int result;
+  private Body response;
+
+  @Data
+  @NoArgsConstructor
+  @AllArgsConstructor
+  public static class Body {
+    private String resultCode = "OK";
+  }
+}
+```
+
+response 로 아래와 같은 객체가 반환될 것이다.
+
+```json
+{
+  "result": 0,
+  "response": {
+    "resultCode": "OK"
+  }
+}
+```
+
+이제 POST 메서드를 처리하는 로직을 Controller 에 추가.
+
+```java
+@RestController
+@RequestMapping("/api")
+@RequiredArgsConstructor
+public class CalculatorApiController {
+
+  private final DollarCalculator dollarCalculator;
+
+  @GetMapping("/sum")
+  public int sum(@RequestParam int x, @RequestParam int y) {
+    dollarCalculator.init();
+    return dollarCalculator.sum(x, y);
+  }
+
+  @PostMapping("/minus")
+  public Res minus(@RequestBody Req req) {
+    dollarCalculator.init();
+    int result = dollarCalculator.minus(req.getX(), req.getY());
+
+    Res res = new Res();
+    res.setResult(result);
+    res.setResponse(new Res.Body());
+    return res;
+  }
+}
+```
+
+테스트는 아래와 같이 한다. `mockMvc.perform().andExpect().andDo()` 로 연결되는 흐름은 같으나 매개변수들을 주의해서 보자.
+
+```java
+/* CalculatorApiControllerTest 객체 안에 있음 */
+
+@Test
+public void minusTest() throws Exception {
+  /* 1. Req 모델을 하나 생성 */
+  Req req = new Req();
+  req.setX(10);
+  req.setY(10);
+
+  /* 2. ObjectMapper 를 이용하여 생성한 Req 모델을 json string 형태로 변환 */
+  String json = new ObjectMapper().writeValueAsString(req);
+
+  /* 3. 테스트 ㄱ */
+  mockMvc.perform(
+      MockMvcRequestBuilders.post("http://localhost:8080/api/minus") // post 니까 post()
+          .contentType(MediaType.APPLICATION_JSON)  // content-type 정의
+          .content(json)  // json string 으로 변환한 Req 객체 전달
+  ).andExpect(
+      MockMvcResultMatchers.status().isOk()
+  ).andExpect(
+      MockMvcResultMatchers.jsonPath("$.result").value("0") // 위에 적은 Res 객체 형태를 생각하면서 코드보면 이해됨
+  ).andExpect(
+      MockMvcResultMatchers.jsonPath("$.response.resultCode").value("OK")  // 깊은 단계의 object 도 판별 가능
+  ).andDo(MockMvcResultHandlers.print());
+}
+```
+
+GET 과 비슷한 성격의 DELETE, POST 와 비슷한 성격의 PUT 도 위와 같은 방법으로 테스트 할 수 있다.
+
+<br/>
+
+---
+
+## 테스트 커버리지 확인
+
+테스트 코드를 모두 작성하였으면 테스트 코드가 어느 정도까지 커버하는지를 확인할 수 있다.
+
+`build.gradle` 파일에 `id 'jacoco'` 한 줄을 추가해주자.
+
+```
+plugins {
+  id 'org.springframework.boot' version '2.5.6'
+  id 'io.spring.dependency-management' version '1.0.11.RELEASE'
+  id 'java'
+  id 'jacoco'
+}
+
+아래 생략 ....
+```
+
+gradle 새로고침을 하고 Tasks/verification 에 test 을 더블클릭하여 작성한 테스트 코드를 다 실행한 결과를 확인할 수 있다. 확인하는 방법은 프로젝트 디렉토리에 build/reports/tests/test/index.html 파일을 브라우저에서 실행시킴으로써 확인할 수 있다.
+
+그리고 테스트 커버리지를 확인하기 위해서는 마찬가지로 Tasks/verificatino 에서 jacocoTestReport 를 더블 클릭하고 작업이 완료되면 build/reports/jacoco/test/html/indexl.html 파일을 브라우저에서 실행시킴으로써 확인이 가능하다.
