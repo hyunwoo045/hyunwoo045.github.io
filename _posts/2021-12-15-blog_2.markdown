@@ -16,3 +16,248 @@ toc_label: "table of content"
 toc_icon: "bars"
 toc_sticky: true
 ---
+
+# 불필요한 데이터 삭제
+
+Minimal Mistakes 에서는 템플릿을 다운받은 후 아래의 불필요한 파일 및 디렉토리를 삭제하라고 권장하고 있습니다. 삭제해줍니다.
+
+- `.editorconfig`
+- `.gitattributes`
+- `.github`
+- `/docs`
+- `/test`
+- `CHANGELOG.md`
+- `minimal-mistakes-jekyll.gemspec`
+- `README.md`
+- `screenshot-layouts.png`
+- `screenshot.png`
+
+<br/>
+
+# \_config.yml 설정
+
+이제부터 본격적으로 블로그의 환경 설정을 해보겠습니다. 루트 디렉토리에 `_config.yml` 파일이 있습니다. 이를 수정할 것입니다. 아주 많은 내용이 작성되어 있지만 이번에 직접 사용하기 위해 작성한 내용들만 소개하도록 하겠습니다.
+
+```yml
+# Theme Settings
+minimal_mistakes_skin: "mint" # 다른 스킨으로 "air", "aqua".. 등이 있으며 기본 제공된 파일에 다른 선택지를 소개해주고 있음
+
+# Site Settings
+locale: "ko-KR"
+title: "MOOCHI 의 블로그"
+description: "MOOCHI 의 개발 일기 블로그"
+url: "https://hyunwoo045.github.io"
+search: true  # 포스트 검색 기능 활성화
+
+# Site Author
+author:
+  name: "김 현우"
+  avatar: "/assets/images/${IMAGE}.png"
+  bio: "기억의 궁전은 나한텐 없다."
+  location: "경기도 용인시"
+  links:
+    - label: "Email"
+      icon: "fas fa-fw fa-envelope-square"
+      url: "mailto:hyunwoo045@gmail.com"
+    - label: "GitHub"
+      icon: "fas fa-fw fa-github"
+      url: "https://github.com/hyunwoo045"
+
+# Outputting
+paginate: 10
+
+# Defaults
+defaults:
+  # _posts
+  - scope:
+      path: ""
+      type: posts
+    values:
+      show_date: true
+      date_format: "%Y-%m-%d"
+      read_time: true
+      layout: single
+      author_profile: true
+      read_time: true
+      comments: true
+      share: true
+      related: true
+  - scope:
+      path: ""
+      type: pages
+    values:
+      layout: single
+      author_profile: true
+```
+
+`#Site Settings` 에 해당하는 내용은 실제 브라우저에 나타나는 형태는 크게 없지만 Open Graph 의 내용을 작성한 것과 같은 효과를 보여줍니다. 카카오톡으로 제 블로그 링크를 보냈을 때 아래와 같이 나오게 되는 효과인 것이죠.
+
+![페이지 미리보기](/images/minimal-mistakes-blog/2.png)
+
+나머지 내용들은 key 값을 보았을 때 어느 정도 내용이 유추 가능하겠습니다. 기본 제공되는 파일에 설명이 잘 나와있기도 하구요.
+
+<br/>
+
+# 포스트 작성
+
+포스트를 작성하기 위해서는 우선 프로젝트 루트 디렉토리에 `_posts` 라는 디렉토리를 생성해줍니다. 그리고 파일을 생성합니다. 파일의 제목은 항상 아래와 같은 형식으로 만들어주세요.
+
+`YYYY-mm-dd-문서제목.markdown` 혹은 `YYYY-mm-dd-문서제목.md`
+
+파일을 생성하였다면 아래와 같이 해당 마크다운 파일에 대한 설정을 작성해주세요.
+
+```yml
+---
+title: "[Jekyll & Github Pages] 개발 블로그 생성 일지 (2)"
+excerpt: "Minimal Mistakes 커스터마이징 하기"
+
+header:
+  overlay_image: https://images.unsplash.com/photo-1501785888041-af3ef285b470?ixlib=rb-1.2.1&ixid=eyJhcHBfaWQiOjEyMDd9&auto=format&fit=crop&w=1350&q=80
+  overlay_filter: 0.5
+
+tags:
+  - Github Pages
+  - Jekyll
+  - Ruby
+
+toc: true
+toc_label: "table of content"
+toc_icon: "bars"
+toc_sticky: true
+---
+```
+
+- title: 페이지에 보여질 제목
+- excerpt: 발췌란 뜻인데, 글에 들어오기 전에 보여주는 썸네일 같은 문장입니다.
+- header: 글 위에 보여줄 이미지를 설정
+- tags: 글에 해당하는 태그. 후에 기록할 Archive 페이지에 종합되어 나타나니 꼼꼼하게 작성하면 좋습니다.
+- toc: 포스트 우측에 나타나는 Table of Content.
+
+그리고 아래에 markdown 형태의 문서를 작성하면 되겠습니다.
+
+<br/>
+
+# 페이지 작성
+
+`/_data/navigation.yml` 을 열어보세요. 아래와 같은 내용이 작성되어 있습니다.
+
+```yml
+# main links
+main:
+  # - title: "Quick-Start Guide"
+  #   url: https://mmistakes.github.io/minimal-mistakes/docs/quick-start-guide/
+  - title: "About"
+    url: https://github.com/hyunwoo045/
+  # - title: "Sample Posts"
+  #   url: /year-archive/
+  # - title: "Sample Collections"
+  #   url: /collection-archive/
+  # - title: "Sitemap"
+  #   url: /sitemap/
+  # - title: "Posts"
+  #   url: /year-archive/
+  - title: "Archive"
+    url: /tag-archive/
+```
+
+필요한 페이지만 주석을 풀어 사용하도록 하겠습니다. 저장한 후 페이지에 돌아가보면 헤더에 아래와 같이 About 과 Archive 가 추가된 것을 볼 수 있습니다.
+
+![](/images/minimal-mistakes-blog/3.png)
+
+이제 About 을 클릭하면 설정한 url 로 이동하는 것을 볼 수 있는데, Archive 의 경우 /tag-archive/ 로 이동합니다. (즉, localhost:4000/tag-archive/) 하지만 현재 해당하는 페이지가 없습니다. 만들어 주겠습니다.
+
+`/_pages` 디렉토리를 생성해주세요. 그리고 url 과 동일한 이름의 `.md` 파일을 만들어 줍니다. 지금의 경우는 `tag-archive.md` 를 생성해야 겠습니다. 그리고 아래와 같이 작성해주세요.
+
+```yml
+---
+title: "Posts by Tag"
+permalink: /tag-archive/
+layout: tags
+author_profile: true
+---
+```
+
+이제 Archive 페이지로 이동하면 "Posts by Tag" 아래에 포스트에 작성한 태그들의 이름과 작성된 횟수가 나타날 것입니다.
+
+<br/>
+
+# 스타일 커스터마이징
+
+이제 블로그는 블로그로써의 역할과 제가 원하던 기능들이 갖추어져 있습니다. 하지만 그다지 이뻐보이진 않습니다. 현재 제 블로그가 그렇다고 막 이쁜 것은 아니지만.. 😭😭😭 . 기본 설정은 너무 투박하니 수정한 부분과 수정한 방법을 일부 소개하겠습니다.
+
+<br/>
+
+## \_variable.scss
+
+기본적으로 스타일을 설정할 수 있는 디렉토리는 `/_sass` 입니다. `/_sass/minimal-mistakes` 디렉토리에 여러 scss 파일들을 볼 수 있습니다. 가장 먼저 살펴볼 파일은 scss 의 변수를 정의해둔 `_variable.scss` 입니다. 파일에 역시나 주석으로 documentation 이 아주 잘 되어 있습니다. 참고해주세요.
+
+수정한 내용을 일부 소개합니다. 커스터마이징하고 싶은 변수는 `/_sass/minimal-mistakes.scss`에 `_variables.scss` 가 import 되기 전에 값을 정의하는 것이 일반적이지만, 어차피 혼자 쓰는 블로그이기에 저는 `_variables.scss` 에 직접 수정을 하겠습니다 😄
+
+```scss
+/* Gaegu 라는 폰트를 사용하는데 기본 글씨가 좀 작아요. 키워줍니다. */
+$doc-font-size: 16 !default;
+
+$global-font-family: "Gaegu", cursive !default;
+
+/* type scale */
+$type-size-1: 2.441em !default; // ~39.056px
+$type-size-2: 1.953em !default; // ~31.248px
+$type-size-3: 1.563em !default; // ~25.008px
+$type-size-4: 1.25em !default; // ~20px
+$type-size-5: 1em !default; // ~16px
+$type-size-6: 0.75em !default; // ~12px
+$type-size-7: 0.6875em !default; // ~11px
+$type-size-8: 0.625em !default; // ~10px
+
+/* 포스트 content 가 나타나는 레이아웃의 너비가 너무 좁아보여 늘려줍니다. */
+$small: 540px !default;
+$medium: 720px !default;
+$medium-wide: 960px !default;
+$large: 1140px !default;
+$x-large: 1450px !default;
+$max-width: $x-large !default;
+```
+
+<br/>
+
+## \_page.scss
+
+위에서 생성했던 Archive 페이지에 태그들을 한 눈에 잘 들어오도록 수정합니다. "검사" 를 통해서 태그들은 `ul.taxonomy__index` 에 모여있는 것을 확인하고, 프로젝트에서 `taxonomy__index` 를 검색하니, `_page.scss` 파일에 해당 태그의 스타일이 정의되어 있는 것을 알 수 있습니다. 태그를 원하는대로 수정합니다.
+
+```scss
+.taxonomy__index {
+  display: flex;
+  flex-flow: wrap;
+  margin: 1.414em 0;
+  padding: 0;
+  font-size: 0.75em;
+  list-style: none;
+  li {
+    padding: 6px;
+    background-color: #aefff4;
+    border-radius: 40%;
+    margin: 0 8px;
+    a {
+      display: -webkit-box;
+      display: -ms-flexbox;
+      display: flex;
+      padding: 0.25em 0;
+      -webkit-box-pack: justify;
+      -ms-flex-pack: justify;
+      color: inherit;
+      text-decoration: none;
+      strong {
+        margin-right: 5px;
+      }
+    }
+  }
+}
+```
+
+위와 같은 방식으로 필요한 부분의 태그.클래스를 알아내어 프로젝트 내부에서 검색한 후 스타일을 조금씩 수정하는 방식으로 블로그를 꾸몄습니다.
+
+<br/>
+
+# 끝
+
+이상입니다. 초보 개발자가 작성한 포스트이니 틀린 내용이 있을 수 있습니다. 이메일로 지적해주세요! 제가 틀린 정보를 퍼뜨리지 않도록 도와주세요! 감사합니다.

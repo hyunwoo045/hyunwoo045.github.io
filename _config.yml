@@ -10,8 +10,8 @@
 # Review documentation to determine if you should use `theme` or `remote_theme`
 # https://mmistakes.github.io/minimal-mistakes/docs/quick-start-guide/#installing-the-theme
 
-theme: "minimal-mistakes-jekyll"
-remote_theme: "mmistakes/minimal-mistakes"
+# theme: "minimal-mistakes-jekyll"
+# remote_theme: "mmistakes/minimal-mistakes"
 minimal_mistakes_skin: "mint" # "air", "aqua", "contrast", "dark", "dirt", "neon", "mint", "plum", "sunrise"
 
 # Site Settings
@@ -20,10 +20,10 @@ title: "MOOCHI 의 블로그"
 title_separator: "-"
 subtitle: # site tagline that appears below site title in masthead
 name: "김현우"
-description: "moochi 의 개발 일기 블로그"
+description: "MOOCHI 의 개발 일기 블로그"
 url: "https://hyunwoo045.github.io"
 baseurl: "/"
-repository: "hyunwoo045/hyunwoo045"
+repository: "hyunwoo045/hyunwoo045.github.io"
 teaser: # path of fallback teaser image, e.g. "/assets/images/500x300.png"
 logo: # path of logo image to display in the masthead, e.g. "/assets/images/88x88.png"
 masthead_title: # overrides the website title displayed in the masthead, use " " for no title

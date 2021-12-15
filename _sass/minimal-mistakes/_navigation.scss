@@ -12,7 +12,7 @@
   max-width: 100%;
   padding-left: 1em;
   padding-right: 1em;
-  font-family: $sans-serif;
+  font-family: $global-font-family;
   -webkit-animation: $intro-transition;
   animation: $intro-transition;
   -webkit-animation-delay: 0.3s;
@@ -123,7 +123,7 @@
     padding: 1em 2em;
     float: left;
     width: 50%;
-    font-family: $sans-serif;
+    font-family: $global-font-family;
     font-size: $type-size-5;
     font-weight: bold;
     text-align: center;
