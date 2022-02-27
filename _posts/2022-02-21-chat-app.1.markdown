@@ -1,0 +1,39 @@
+---
+title: "코드백수의 평범한 채팅 웹앱 만들기 (1) - 개요"
+excerpt: "간단한 프로젝트 소개"
+
+header:
+  overlay_image: https://images.unsplash.com/photo-1501785888041-af3ef285b470?ixlib=rb-1.2.1&ixid=eyJhcHBfaWQiOjEyMDd9&auto=format&fit=crop&w=1350&q=80
+  overlay_filter: 0.5
+
+tags:
+  - Node.js
+
+toc: true
+toc_label: "table of content"
+toc_icon: "bars"
+toc_sticky: true
+---
+
+# 시작하기
+
+이 프로젝트는 실시간 양방향 통신에 대해서 공부할 목적으로 시작한 사이드 프로젝트입니다. 실시간 통신의 대표 서비스인 채팅 웹 어플리케이션을 만들었으며 실제 서비스를 목적으로 만든 것이 아닌 학습을 목적으로 만들었습니다. 학습의 주요 목표는 아래와 같습니다.
+
+- REST API 구현 (Node.js)
+- 데이터베이스의 활용 (MySQL, MongoDB)
+- 회원 인증 시스템 구축 (JSON Web Token)
+- 양방향 통신 시스템 구축 (Socket.io)
+- 협업을 위한 API 명세 공개하기 (Swagger)
+
+각 학습 목표 달성을 위한 과정과 결과를 각기 다른 글을 통해 공유해보고자 합니다. :D
+
+<br/>
+
+# 바로가기
+
+- 코드백수의 평범한 채팅 웹앱 만들기 (1) - 개요
+- [코드백수의 평범한 채팅 웹앱 만들기 (2) - REST API 구현]()
+- [코드백수의 평범한 채팅 웹앱 만들기 (3) - 데이터베이스]()
+- [코드백수의 평범한 채팅 웹앱 만들기 (4) - 회원 인증 시스템 구축]()
+- [코드백수의 평범한 채팅 웹앱 만들기 (5) - 양방향 통신 시스템 구축]()
+- [코드백수의 평범한 채팅 웹앱 만들기 (6) - 협업을 위한 API 명세 공개하기]()

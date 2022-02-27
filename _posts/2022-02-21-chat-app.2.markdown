@@ -1,0 +1,42 @@
+---
+title: "코드백수의 평범한 채팅 웹앱 만들기 (2) - REST API 구현"
+excerpt: "Node.js 로 REST API 서버 구현하기"
+
+header:
+  overlay_image: https://images.unsplash.com/photo-1501785888041-af3ef285b470?ixlib=rb-1.2.1&ixid=eyJhcHBfaWQiOjEyMDd9&auto=format&fit=crop&w=1350&q=80
+  overlay_filter: 0.5
+
+tags:
+  - Node.js
+  - Express
+
+toc: true
+toc_label: "table of content"
+toc_icon: "bars"
+toc_sticky: true
+---
+
+# Node.js
+
+Rest API 서버를 구현하는데에 Node.js 를 선택한 이유는 사실 '주로 사용하는 언어'라는 이유가 가장 크긴합니다. 하지만 나름 Java 의 Spring boot 를 공부했고, 두 언어를 비교해보지 않은 것은 아니에요. `Java vs Node.js` 가 이 글의 주된 목적은 아니니까 아주 간단하게 둘의 차이를 살펴보고 왜 Node.js 를 선택했는지에 대해서 정리해보겠습니다.
+
+참고자료1: [Java vs Node JS](https://www.educba.com/java-vs-node-js/)<br/>
+참고자료2: [[Java vs node.js] 무엇을 사용해야할까?](https://blog.fitz.software/183)
+
+각 언어의 장점을 아래와 같이 요약할 수 있겠네요.
+
+Java:
+
+1. 클래스 기반의 객체 지향적인 언어로 코드가 명시적이고 재사용성이 높다.
+2. 메모리 사용률이 높지만 그 만큼 퍼포먼스가 Node.js 에 비해 뛰어나다.
+3. 멀티스레드 컨셉이기 때문에 멀티코어 CPU 의 호율을 극대화시킬 수 있다.
+
+<br/>
+
+Node.js:
+
+1. 자바에 비해 언어의 자유도가 높아 빠르게 변화하고 확장해야 하는 시스템에 적합.
+2. Javascript 를 기반으로 하기 때문에 브라우저와 효율적으로 호환이 가능하다.
+3. Single-thread, Non-blocking I/O 컨셉으로 CPU 연산이 적고 단순 I/O가 많은 웹 환경에서 Java 보다 효율이 좋다.
+
+Javascript 의 언어 자체의 한계로 처리속도로만 따지고 본다면 Java 가 훨씬 뛰어난 성능을 보이는 것은 사실입니다만, 데이터베이스로의 CRUD 작업과 같은 I/O가 발생한다면 Thread가 블록이 되기 때문에 요청이 많은 웹 환경에서 불리함이 드러날 수 있습니다.

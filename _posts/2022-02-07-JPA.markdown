@@ -1,0 +1,457 @@
+---
+title: "Spring - JPA 프로그래밍"
+excerpt: "Spring Data, JPA 프로그래밍 공부 노트"
+
+header:
+  overlay_image: https://images.unsplash.com/photo-1501785888041-af3ef285b470?ixlib=rb-1.2.1&ixid=eyJhcHBfaWQiOjEyMDd9&auto=format&fit=crop&w=1350&q=80
+  overlay_filter: 0.5
+
+tags:
+  - Nest.js
+
+toc: true
+toc_label: "table of content"
+toc_icon: "bars"
+toc_sticky: true
+---
+
+# JPA
+
+객체와 데이터베이스의 관계를 연결해주는 것을 ORM(Object Relational Mapping)이라고 함. JPA는 이 ORM 을 위한 자바 EE 표준.
+
+Hibernate 는 JPA 에 대한 직접적인 구현체(implementation) 이라고 보면 되고, Spring Data JPA 는 Hibernate 를 간편하게 사용하기 위해 스프링에서 제공하는 프레임워크.
+
+---
+
+<br/>
+
+# LOMBOK
+
+JPA 에서 Entity 객체를 만드는 데에 필요한 것들, Getter/Setter, toString() 등을 어노테이션으로 간단하게 만들 수 있도록 해줌.
+
+```java
+import lombok.*;
+
+import java.time.LocalDateTime;
+
+@Getter
+@Setter
+@ToString
+@NoArgsConstructor        // 인자가 없는 생성자를 자동 생성
+@AllArgsConstructor       // 객체가 가지고 있는 모든 필드를 받아오는 생성자를 자동 생성
+@RequiredArgsConstructor  // 객체 내에서 @NonNull 로 지정된 필드만을 인자로 받아오는 생성자를 자동 생성
+@EqualsAndHashCode        // 필드값이 동일하면 동일한 객체다. 와 해시코드를 만들어주는 메서드를 자동 생성
+@Data                     // @Getter @Setter @RequiredArgsConstructor @ToString @EqualsAndHashCode 를 대체해줄 수 있음.
+@Builder                  // @AllArgsConstructor 와 비슷하게 객체를 생성하고 필드값을 주입하는데에 builder 의 형식을 가지고 제공해준다.
+public class User {
+  @NonNull
+  private String name;
+  @NonNull
+  private String email;
+  private String address;
+  private LocalDateTime createAt;
+  private LocalDateTime updateAt;
+}
+```
+
+---
+
+# H2.DATABASE
+
+`/src/resources/application.yaml' 파일을 하나 생성하고 아래와 같이 입력하면
+
+```yaml
+spring:
+  h2:
+    console:
+      enabled: true
+  jpa:
+    show-sql: true
+    properties:
+      hibernate:
+        format_sql: true
+    defer-datasource-initialization: true
+server:
+  port: 8070
+```
+
+`localhost:8070` 서버가 열리고 h2.console.enabled 를 true로 지정함으로써 메모리 DB가 생성되게 됨.
+
+브라우저에서 `localhost:8070/h2-console` 에 접속하고 application을 run 했을 때 h2 주소가 출력된 것을 복사해서 url 로 접속하면 ui가 나옴. 거기서 메모리 db 테스트 가능.
+
+Spring boot 2.4버전에서 2.5버전으로 바뀌면서 `data.sql` 파일이 Hibernate 가 초기화 되기 전에 돌아가도록 되었는데 이로 인해 `call next value for hibernate_sequence` 와 같은 스크립트를 실행시켰을 때 `hibernate_sequence not found` 와 같은 오류가 발생하는 것을 볼 수 있음. 이를 방지하기 위해서 `defer-datasource-initialization: true` 항목을 jpa 설정 아래 추가.
+
+---
+
+# Entity
+
+`@Entity` 어노테이션을 객체에 선언해줌으로써 데이터베이스와 연결될 객체임을 알려줌
+
+```java
+import lombok.*;
+
+import javax.persistence.Entity;
+import javax.persistence.GeneratedValue;
+import javax.persistence.Id;
+import java.time.LocalDateTime;
+
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+@RequiredArgsConstructor
+@Builder
+@Entity                     // 데이터베이스에 연결될 객체임을 알려줌
+public class User {
+  @Id                       // RDBMS에 PK가 있듯이 객체에도 id를 만들어주어야 함.
+  @GeneratedValue           // 자동으로 증가하는 id
+  private Long id;
+
+  @NonNull
+  private String name;
+
+  @NonNull
+  private String email;
+
+  private LocalDateTime createAt;
+
+  private LocalDateTime updateAt;
+}
+```
+
+Repository 를 생성함으로써 객체를 저장, 조회해보자.
+
+```java
+import com.fastcampus.jpa.bookmanager.domain.User;
+import org.springframework.data.jpa.repository.JpaRepository;
+
+/*
+* JpaRepository 를 상속받는 것만으로 많은 JPA 메서드를 지원받을 수 있음.
+* Generic Type 은 <Entity Type, Entity ID Type>
+* */
+public interface UserRepository extends JpaRepository<User, Long> {
+}
+```
+
+JUnit으로 테스트 해보자
+
+```java
+import com.fastcampus.jpa.bookmanager.domain.User;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.SpringBootTest;
+
+import static org.junit.jupiter.api.Assertions.*;
+
+@SpringBootTest
+class UserRepositoryTest {
+
+  @Autowired
+  private UserRepository userRepository;
+
+  @Test
+  void crud() {
+    userRepository.save(new User());
+    System.out.println(">>> " + userRepository.findAll());
+  }
+}
+```
+
+출력 결과
+
+```
+>>> [User(id=1, name=null, email=null, createAt=null, updateAt=null)]
+```
+
+`JpaRepository` 를 상속받음으로써 `save()`, `findAll()` 과 같은 메서드를 지원받아 사용할 수 있게 되었다! 어떤 메서드가 더 있는지는 `CMD + 클릭` 을 통해 직접 내부 코드를 보고 써보자 :D
+
+- `findAll()`
+- `findAll(Sort sort)` : 정렬값이 추가된 전체 조회
+- `findAllById(Iterable<ID> ids)` : 여러 아이디를 조회
+- `saveAll(Iterable<S> entity)`: 여러 entity 를 저장
+
+등...
+
+<br/>
+
+# Query Method
+
+성능 상의 문제로 `findAll()` 과 같은 테이블 전체를 다 조회하는 메서드는 잘 사용하지 않는다. 그래서 RDB로 치면 `WHERE` 과 같은 구문을 사용하여 조건문을 추가한다. 이와 관련된 메서드들을 살펴보자.
+
+메서드명이 꽤 직관적이라 코드로 설명 대체 가능해보임.
+
+```java
+import com.fastcampus.jpa.bookmanager.domain.User;
+import org.springframework.data.jpa.repository.JpaRepository;
+
+import java.time.LocalDateTime;
+import java.util.List;
+import java.util.Optional;
+
+/*
+* JpaRepository 를 상속받는 것만으로 많은 기능을 상속받을 수 있음 - findAll(), save(), ...등
+* Generic Type 은 <Entity Type, Entity ID Type>
+* */
+public interface UserRepository extends JpaRepository<User, Long> {
+  /* 간단한 search query */
+  Optional<User> findByName(String name);
+  User findByEmail(String email);
+  User getByEmail(String email);
+  User readByEmail(String email);
+  User queryByEmail(String email);
+  User searchByEmail(String email);
+  User streamByEmail(String email);
+  User findUserByEmail(String email);
+
+  /* 조금 복잡한 search query */
+  List<User> findByNameAndEmail(String name, String email);
+  List<User> findByNameOrEmail(String name, String email);
+  List<User> findByCreatedAtAfter(LocalDateTime yesterday);
+  List<User> findByIdAfter(Long id);
+  List<User> findByCreateAtGreaterThan(LocalDateTime yesterday);
+  List<User> findByCreateAtGreaterThanEqual(LocalDateTime yesterday);
+  List<User> findByCreateAtBetween(LocalDateTime yesterday, LocalDateTime tomorrow);
+  List<User> findByIdBetween(Long id1, Long id2);
+  List<User> findByIdGreaterThanEqualAndIdLessThanEqual(Long id1, Long id2);
+  List<User> findByIdIsNotNull();   // 빈 값인지 아닌지 확인
+  List<User> findByAddressIsNotEmpty();  // Collection Type이 빈 값인지 아닌지 확인. 많이 쓰이지 않음 (warning 이 뜨는데 왜 뜨는지..)
+  List<User> findByNameIn(List<String> names);
+  List<User> findByNameStartingWith(String name);
+  List<User> findByNameEndingWith(String name);
+  List<User> findByNameContains(String name);
+  List<User> findByNameLike(String name);   // string 은 % wildcard 를 사용.
+  List<User> findByNameEquals(String name); // = findByName 과 동일함
+  List<User> findByNameIs(String name);     // = findByName 과 동일함. 코드 가독성을 높히기 위해 지원되는 메서드라고 생각하자.
+}
+
+```
+
+테스트 코드
+
+```java
+import com.fastcampus.jpa.bookmanager.domain.User;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.SpringBootTest;
+
+@SpringBootTest
+class UserRepositoryTest {
+
+  @Autowired
+  private UserRepository userRepository;
+
+  @Test
+  void select() {
+    System.out.println("findByEmail : " + userRepository.findByEmail("hyunwoo045@gmail.com"));
+    System.out.println("getByEmail : " + userRepository.getByEmail("hyunwoo045@gmail.com"));
+    System.out.println("readByEmail : " + userRepository.readByEmail("hyunwoo045@gmail.com"));
+    System.out.println("queryByEmail : " + userRepository.queryByEmail("hyunwoo045@gmail.com"));
+    System.out.println("searchByEmail : " + userRepository.searchByEmail("hyunwoo045@gmail.com"));
+    System.out.println("streamByEmail : " + userRepository.streamByEmail("hyunwoo045@gmail.com"));
+    System.out.println("findUserByEmail : " + userRepository.findUserByEmail("hyunwoo045@gmail.com"));
+    System.out.println("findByCreatedAtAfter : " + userRepository.findByCreateAtAfter(LocalDateTime.now().minusDays(1L)));
+    System.out.println("findByIdAfter : " + userRepository.findByIdAfter(2L));
+    System.out.println("findByCreateAtGreaterThan : " + userRepository.findByCreateAtGreaterThan(LocalDateTime.now().minusDays(1L)));
+    System.out.println("findByCreateAtGreaterThanEqual : " + userRepository.findByCreateAtGreaterThanEqual(LocalDateTime.now().minusDays(1L)));
+    System.out.println("findByCreateAtBetween : " + userRepository.findByCreateAtBetween(LocalDateTime.now().minusDays(1L), LocalDateTime.now().plusDays(1L)));
+    System.out.println("findByIdBetween : " + userRepository.findByIdBetween(1L, 3L));
+    System.out.println("findByIdGreaterThanEqualAndIdLessThanEqual : " + userRepository.findByIdGreaterThanEqualAndIdLessThanEqual(1L, 3L));
+    System.out.println("findByIdIsNotNull : " + userRepository.findByIdIsNotNull());
+    System.out.println("findByAddressIsNotEmpty : " + userRepository.findByAddressIsNotEmpty());
+    System.out.println("findByNameIn : " + userRepository.findByNameIn(Lists.newArrayList("hyunwoo", "charlie")));
+    System.out.println("findByNameStartingWith : " + userRepository.findByNameStartingWith("hyun"));
+    System.out.println("findByNameEndingWith : " + userRepository.findByNameEndingWith("woo"));
+    System.out.println("findByNameContains : " + userRepository.findByNameContains("unw"));
+    System.out.println("findByNameLike : " + userRepository.findByNameLike("%unw%"));
+    System.out.println("findByNameEquals : " + userRepository.findByNameEquals("moochi"));
+    System.out.println("findByNameIs : " + userRepository.findByNameIs("moochi"));
+  }
+}
+```
+
+테스트 실행 후에 console 에 찍히는 sql query 문을 꼭 한 번 보도록 하자.
+
+<br/>
+
+정렬을 시켜보자.
+
+```java
+import com.fastcampus.jpa.bookmanager.domain.User;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.jpa.repository.JpaRepository;
+
+import java.time.LocalDateTime;
+import java.util.List;
+import java.util.Optional;
+
+public interface UserRepository extends JpaRepository<User, Long> {
+  /* 쿼리메소드로 정렬해보기 */
+  List<User> findTop1ByName(String name);
+  List<User> findLast1ByName(String name);              // 이 메서드는 findByName 과 동일한 결과를 가져옴. Last1 이라는 키워드는 없기 때문 :)
+  List<User> findTop1ByNameOrderByIdDesc(String name);  // 끝에꺼 하나 가지고 오고 싶으면 역순으로 정렬해서 Top1 으로 가져오자. (역순=Desc, 정순=Asc)
+  List<User> findFirstByNameOrderByIdDescEmailAsc(String name); // 메서드 이름 너무 길어! 싶으면 아래처럼 Sort 객체를 만들어서 인자로 넘길 수 있음.
+  List<User> findFirstByName(String name, Sort sort);
+}
+```
+
+```java
+import com.fastcampus.jpa.bookmanager.domain.User;
+import org.assertj.core.util.Lists;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.data.domain.Sort;
+
+import java.time.LocalDateTime;
+
+@SpringBootTest
+class UserRepositoryTest {
+
+  @Autowired
+  private UserRepository userRepository;
+
+  @Test
+  void pagingAndSortingTest() {
+    System.out.println("findTop1ByName : " + userRepository.findTop1ByName("hyunwoo"));
+    System.out.println("findTop1ByNameOrderByIdDesc : " + userRepository.findTop1ByNameOrderByIdDesc("hyunwoo"));
+    System.out.println("findFirstByNameOrderByIdDescEmailAsc : " + userRepository.findFirstByNameOrderByIdDescEmailAsc("hyunwoo"));
+    System.out.println("findFirstByNameWithSortParams : " + userRepository.findFirstByName("hyunwoo", Sort.by(Sort.Order.desc("id"), Sort.Order.asc("email"))));
+  }
+}
+```
+
+<br/>
+
+# Entity 추가
+
+```java
+import lombok.*;
+
+import javax.persistence.*;
+import java.time.LocalDateTime;
+
+
+@NoArgsConstructor
+@AllArgsConstructor
+@RequiredArgsConstructor
+@Data
+@Builder
+@Entity                     // 데이터베이스에 연결될 객체임을 알려줌
+// @Table, CREATE TABLE 에 지정할 테이블 이름, name에 인덱싱, email에 제약사항 걸기
+@Table(name = "user", indexes = { @Index(columnList = "name")}, uniqueConstraints = { @UniqueConstraint(columnNames = {"email"})})
+public class User {
+  @Id                       // RDBMS에 PK가 있듯이 객체에도 id를 만들어주어야 함.
+  @GeneratedValue           // Id를 자동 생성
+  private Long id;
+
+  @NonNull
+  private String name;
+
+  @NonNull
+  private String email;
+
+  @Enumerated(EnumType.STRING)    // Enum 타입을 쓰는 경우 어노테이션을 붙여주어 발생할 수 있는 장애를 방지. *아래서 자세히 설명
+  private Gender gender;
+
+  //  @Column(name = "crtd_at")   // 데이터베이스 column 과 객체의 name 을 별도로 매핑하기 위한 어노테이션
+  // @Column(nullable = false)    // column 에 null 이 입력 가능여부를 설정
+  // @Column(unique = true)       // column 이 고유한 값을 가지도록 설정
+  @Column(updatable = false)      // update query 를 적용 가능여부를 설정
+  private LocalDateTime createAt;
+
+  private LocalDateTime updateAt;
+
+  @Transient                      // 영속성 처리에서 제외. DB 데이터에 반영되지 않고 객체의 생명주기와 함께 함
+  private String testData;
+}
+```
+
+`@Enumerated` 에 대해
+
+```java
+public enum Gender {
+  MALE,
+  FEMALE,
+}
+```
+
+이러한 Enum type 을 만들어두고
+
+```java
+package com.fastcampus.jpa.bookmanager.repository;
+
+import com.fastcampus.jpa.bookmanager.domain.Gender;
+import com.fastcampus.jpa.bookmanager.domain.User;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.SpringBootTest;
+
+import java.time.LocalDateTime;
+
+@SpringBootTest
+class UserRepositoryTest {
+
+  @Autowired
+  private UserRepository userRepository;
+
+  @Test
+  void enumTest() {
+    userRepository.save(new User("hyunwoo", "hyunwoo045@gmail.com"));
+
+    User user = userRepository.findById(1L).orElseThrow(RuntimeException::new);
+    user.setGender(Gender.MALE);
+
+    userRepository.save(user);
+
+    userRepository.findAll().forEach(System.out::println);
+
+    System.out.println(userRepository.findRawRecord().get("gender"));
+  }
+}
+```
+
+이런식으로 테스트 한다고 했을 때, `@Enumerated` 어노테이션이 없으면 `get("gender")` 했을 때 'MALE' 이 출력되지 않고 0이 출력된다. Enum 타입에서 MALE의 zero-based index가 db에 저장된 것. 이는 EnumType 의 default 값이 'ORDINAL' 이기 때문이다.
+
+```java
+@Target({METHOD, FIELD})
+@Retention(RUNTIME)
+public @interface Enumerated {
+
+    /** (Optional) The type used in mapping an enum type. */
+    EnumType value() default ORDINAL;
+}
+```
+
+정의된 `Enumerated` 인터페이스
+
+그래서 EnumType.ORDINAL 인 것을 EnumType.STRING 으로 설정함으로써 실제 db 에도 string 값이 저장되도록 한다.
+
+<br/>
+
+# Listener
+
+Listener 는 이벤트가 발생하는 것을 기다렸다가 발생 시 특정 동작을 하도록 하는 것.
+
+```java
+  @PrePersist     // insert 전에 실행
+  @PreUpdate      // merge 메서드 호출 전에 실행
+  @PreRemove      // remove 메서드 호출 전에 실행
+  @PostPersist    // insert 이후에 실행
+  @PostUpdate     // merge 메서드 호출 후에 실행
+  @PostRemove     // remove 메서드 호출 후에 실행
+  @PostLoad       // select 메서드 호출 직전에 실행
+```
+
+예시
+
+```java
+  @PrePersist
+  public void prePersist() {
+    this.createAt = LocalDateTime.now();
+    this.updateAt = LocalDateTime.now();
+  }
+
+  @PreUpdate
+  public void preUpdate() {
+    this.updateAt = LocalDateTime.now();
+  }
+```
