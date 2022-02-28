@@ -455,3 +455,110 @@ Listener 는 이벤트가 발생하는 것을 기다렸다가 발생 시 특정 
     this.updateAt = LocalDateTime.now();
   }
 ```
+
+위와 같이 메서드를 작성하여 Entity class 에 선언하는 방식도 있으나, 많은 Entity 객체들이 같은 멤버 변수에 대한 같은 동작을 정의한다고 한다면 `@EntityListeners` 어노테이션을 사용하는 것이 유지보수성 측면에서 더 좋은 방법이다. 아래는 그 예시이다.
+
+`MyEntityListener` 객체를 새로 생성. 아래와 같이 작성.
+
+```java
+import javax.persistence.PrePersist;
+import javax.persistence.PreUpdate;
+import java.time.LocalDateTime;
+
+public class MyEntityListener {
+  @PrePersist
+  public void prePersist(Object o) {
+    if (o instanceof Auditable) {
+      ((Auditable) o).setCreatedAt(LocalDateTime.now());
+      ((Auditable) o).setUpdatedAt(LocalDateTime.now());
+    }
+  }
+
+  @PreUpdate
+  public void preUpdate(Object o) {
+    if (o instanceof Auditable) {
+      ((Auditable) o).setUpdatedAt(LocalDateTime.now());
+    }
+  }
+}
+```
+
+Entity 객체에 `@EntityListener` 어노테이션을 추가하며 위에서 작성한 class 를 연결해줌.
+
+```java
+import lombok.*;
+
+import javax.persistence.*;
+import java.time.LocalDateTime;
+
+
+@NoArgsConstructor
+@AllArgsConstructor
+@RequiredArgsConstructor
+@Data
+@Builder
+@Entity
+@EntityListeners(value = MyEntityListener.class)
+public class User implements Auditable {
+  @Id
+  @GeneratedValue
+  private Long id;
+
+  @NonNull
+  private String name;
+
+  @NonNull
+  private String email;
+
+  @Enumerated(EnumType.STRING)
+  private Gender gender;
+
+  private LocalDateTime createdAt;
+
+  private LocalDateTime updatedAt;
+}
+```
+
+테스트를 작성하여 insert, update 를 해보면 정상적으로 '생성일' '갱신일' 항목이 잘 반영되는 것을 볼 수 있다.
+
+```java
+import com.fastcampus.jpa.bookmanager.domain.Gender;
+import com.fastcampus.jpa.bookmanager.domain.User;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
+
+import java.time.LocalDateTime;
+
+@SpringBootTest
+class UserRepositoryTest {
+
+  @Autowired
+  private UserRepository userRepository;
+
+  @Test
+  void prePersistTest() {
+    User user = new User();
+    user.setEmail("hyunwoo045@fastcampus.com");
+    user.setName("Hyun Woo Kim");
+
+    userRepository.save(user);
+
+    System.out.println(userRepository.findByEmail("hyunwoo045@fastcampus.com"));
+  }
+
+  @Test
+  void preUpdateTest() {
+    User user = userRepository.findById(1L).orElseThrow(RuntimeException::new);
+
+    System.out.println("as-is : " + user);
+
+    user.setName("Hyun Woo Kim!");
+    userRepository.save(user);
+
+    System.out.println("to-be : " + userRepository.findAll().get(0));
+  }
+}
+```
