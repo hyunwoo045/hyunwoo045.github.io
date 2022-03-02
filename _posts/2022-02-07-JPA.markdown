@@ -429,6 +429,8 @@ public @interface Enumerated {
 
 # Listener
 
+## Listener 예시
+
 Listener 는 이벤트가 발생하는 것을 기다렸다가 발생 시 특정 동작을 하도록 하는 것.
 
 ```java
@@ -456,9 +458,9 @@ Listener 는 이벤트가 발생하는 것을 기다렸다가 발생 시 특정 
   }
 ```
 
-위와 같이 메서드를 작성하여 Entity class 에 선언하는 방식도 있으나, 많은 Entity 객체들이 같은 멤버 변수에 대한 같은 동작을 정의한다고 한다면 `@EntityListeners` 어노테이션을 사용하는 것이 유지보수성 측면에서 더 좋은 방법이다. 아래는 그 예시이다.
+위와 같이 메서드를 작성하여 Entity class 에 선언하는 방식도 있으나, 많은 Entity 객체들이 같은 멤버 변수에 대한 같은 동작을 정의한다고 한다면 `@EntityListeners` 어노테이션을 사용하는 것이 유지보수성 측면에서 더 좋은 방법이다. 어떻게 만드는지 한 번 알아보자.
 
-`MyEntityListener` 객체를 새로 생성. 아래와 같이 작성.
+여러 Entity 에서 호출할 `MyEntityListener` 객체를 생성한다. 일단 빈 객체로 둠.
 
 ```java
 import javax.persistence.PrePersist;
@@ -466,24 +468,26 @@ import javax.persistence.PreUpdate;
 import java.time.LocalDateTime;
 
 public class MyEntityListener {
-  @PrePersist
-  public void prePersist(Object o) {
-    if (o instanceof Auditable) {
-      ((Auditable) o).setCreatedAt(LocalDateTime.now());
-      ((Auditable) o).setUpdatedAt(LocalDateTime.now());
-    }
-  }
-
-  @PreUpdate
-  public void preUpdate(Object o) {
-    if (o instanceof Auditable) {
-      ((Auditable) o).setUpdatedAt(LocalDateTime.now());
-    }
-  }
 }
 ```
 
-Entity 객체에 `@EntityListener` 어노테이션을 추가하며 위에서 작성한 class 를 연결해줌.
+이번 예제에서는 Entity 의 생명 주기에서 `createdAt` 과 `updatedAt` 을 주로 다룸. `MyEntityListener` 를 여러 Entity 에서 사용하기 위해서는 `createdAt` 과 `updatedAt` 이 존재한다는 것을 알아야하기 때문에 인터페이스를 하나 선언하는 것도 나쁘지 않은 방법. `Auditable` 이라는 인터페이스를 만들어서 getter/setter 를 선언해주자.
+
+```java
+package com.fastcampus.jpa.bookmanager.domain;
+
+import java.time.LocalDateTime;
+
+public interface Auditable {
+  LocalDateTime getCreatedAt();
+  LocalDateTime getUpdatedAt();
+
+  void setCreatedAt(LocalDateTime createdAt);
+  void setUpdatedAt(LocalDateTime updatedAt);
+}
+```
+
+Entity 객체에 `@EntityListener` 어노테이션을 추가하며 `MyEntityListener` 객체를 연결해줌. 그리고 이 객체는 `Auditable` 의 구현체임을 선언까지 해주자. `@Data` 어노테이션을 달아놓았기 때문에 getter/setter 가 자동으로 구현되기 때문에 따로 메서드 구현 코드를 추가하지 않아도 됨.
 
 ```java
 import lombok.*;
@@ -516,6 +520,31 @@ public class User implements Auditable {
   private LocalDateTime createdAt;
 
   private LocalDateTime updatedAt;
+}
+```
+
+마지막으로 실제 `MyEntityListener` 객체의 구현이다.
+
+```java
+import javax.persistence.PrePersist;
+import javax.persistence.PreUpdate;
+import java.time.LocalDateTime;
+
+public class MyEntityListener {
+  @PrePersist
+  public void prePersist(Object o) {
+    if (o instanceof Auditable) {
+      ((Auditable) o).setCreatedAt(LocalDateTime.now());
+      ((Auditable) o).setUpdatedAt(LocalDateTime.now());
+    }
+  }
+
+  @PreUpdate
+  public void preUpdate(Object o) {
+    if (o instanceof Auditable) {
+      ((Auditable) o).setUpdatedAt(LocalDateTime.now());
+    }
+  }
 }
 ```
 
@@ -560,5 +589,347 @@ class UserRepositoryTest {
 
     System.out.println("to-be : " + userRepository.findAll().get(0));
   }
+}
+```
+
+<br/>
+
+## 다른 Entity 와의 상호작용
+
+이런 방식으로 다양한 서브 기능들을 만들 수 있는데, 간단한 예시로 '유저 정보 변경'에 대한 History Table 을 따로 만든다고 해보자.
+
+그럼 이제 History 에 해당하는 Entity 를 만들어보자.
+
+```java
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
+import javax.persistence.Entity;
+import javax.persistence.GeneratedValue;
+import javax.persistence.Id;
+import java.time.LocalDateTime;
+
+@Entity
+@NoArgsConstructor
+@Data
+public class UserHistory {
+
+  @Id
+  @GeneratedValue
+  private Long id;
+
+  private Long userId;
+
+  private String name;
+
+  private String email;
+
+  private LocalDateTime createdAt;
+
+  private LocalDateTime updatedAt;
+}
+```
+
+User Entity에 대한 History 니까 User 랑 똑같이 만들었음. Entity 를 만들었으니 Repository 도 만들어보자. 기능을 제공받기 위해 JpaRepository 를 상속받는다.
+
+```java
+import com.fastcampus.jpa.bookmanager.domain.UserHistory;
+import org.springframework.data.jpa.repository.JpaRepository;
+
+public interface UserHistoryRepository extends JpaRepository<UserHistory, Long> {
+}
+```
+
+굳. 이제 문제의 Listener 를 정의해보자.
+
+```java
+import com.fastcampus.jpa.bookmanager.repository.UserHistoryRepository;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Component;
+
+import javax.persistence.PreUpdate;
+
+@Component
+public class UserEntityListener {
+  @Autowired
+  private UserHistoryRepository userHistoryRepository;
+
+  @PreUpdate
+  public void preUpdate(Object o) {
+    User user = (User) o;
+
+    UserHistory userHistory = new UserHistory();
+    userHistory.setUserId(user.getId());
+    userHistory.setName(userHistory.getName());
+    userHistory.setEmail(userHistory.getEmail());
+
+    userHistoryRepository.save(userHistory);
+  }
+}
+```
+
+User 테이블에서 업데이트가 일어나면 UserHistory 테이블에 해당 User 데이터를 넣어주겠다는 코드임. 여기서 UserHistoryRepository 의 `save()` 메서드를 사용하기 위해서 UserHistoryRepository 의존성을 주입했다. 테스트 코드를 작성하고 돌려보면 에러(`NullPointerException`)가 발생함.
+
+```java
+@SpringBootTest
+class UserRepositoryTest {
+
+  @Autowired
+  private UserRepository userRepository;
+
+  @Autowired
+  private UserHistoryRepository userHistoryRepository;
+
+  @Test
+  void userHistoryTest() {
+    User user = new User();
+    user.setEmail("hyunwoo-new@fastcampus.com");
+    user.setName("hyunwoo-new");
+
+    userRepository.save(user);
+
+    user.setName("hyunwoo-new-new");
+
+    userRepository.save(user);
+
+    userHistoryRepository.findAll().forEach(System.out::println);
+  }
+}
+```
+
+`NullPointerException` 이 발생한 코드를 따라가보면 UserEntityListener 객체의 `userHistoryRepository.save(userHistory);` 에서 발생했음을 알 수 있고, 그 말은 userHistoryRepository 가 `null` 이라는 의미임. = "EntityListener 는 Spring Bean 을 주입받지 못한다."
+
+그래서 Spring Bean 을 가져올 수 있는 특별한 class 를 하나 만들어야 함.
+
+`support` 패키지를 하나 만들고 그 아래 `BeanUtils` 객체를 하나 생성
+
+```java
+import org.springframework.beans.BeansException;
+import org.springframework.context.ApplicationContext;
+import org.springframework.context.ApplicationContextAware;
+import org.springframework.stereotype.Component;
+
+@Component    // Bean 임을 표시
+public class BeanUtils implements ApplicationContextAware {
+  private static ApplicationContext applicationContext;
+
+  @Override
+  public void setApplicationContext(ApplicationContext applicationContext) throws BeansException {
+    BeanUtils.applicationContext = applicationContext;
+  }
+
+  public static<T> T getBean(Class<T> clazz) {
+    return applicationContext.getBean(clazz);
+  }
+}
+```
+
+<s>(사실 100% 이해는 못함 ^^ 이 글을 보고 있는 나 자신아 지금은 이해했니?)</s>
+
+이제 `@Autowired` 로 의존성을 주입받는게 아니라 직접 bean 을 가져오자.
+
+```java
+import com.fastcampus.jpa.bookmanager.repository.UserHistoryRepository;
+import com.fastcampus.jpa.bookmanager.support.BeanUtils;
+
+import javax.persistence.PrePersist;
+import javax.persistence.PreUpdate;
+
+public class UserEntityListener {
+  @PrePersist
+  @PreUpdate    // 2개의 어노테이션을 작성하여 두 개 이상의 이벤트를 적용시킬 수도 있다 :D
+  public void prePersistAndPreUpdate(Object o) {
+    UserHistoryRepository userHistoryRepository = BeanUtils.getBean(UserHistoryRepository.class);
+
+    User user = (User) o;
+
+    UserHistory userHistory = new UserHistory();
+    userHistory.setUserId(user.getId());
+    userHistory.setName(user.getName());
+    userHistory.setEmail(user.getEmail());
+
+    userHistoryRepository.save(userHistory);
+  }
+}
+```
+
+<br/>
+
+## 기본 Listener
+
+위 예시들에서 사용한 `createdAt` 이나 `updatedAt` 은 아주 자주 사용되기 때문에 Spring 에서 기본 Listener 를 통해 기능을 지원해준다. 메인 객체를 아래와 같이 작성.
+
+```java
+import org.springframework.boot.SpringApplication;
+import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.data.jpa.repository.config.EnableJpaAuditing;
+
+@SpringBootApplication
+@EnableJpaAuditing        // Auditing 하겠다는 것을 명시
+public class BookmanagerApplication {
+
+  public static void main(String[] args) {
+    SpringApplication.run(BookmanagerApplication.class, args);
+  }
+
+}
+```
+
+Entity 의 설정은 아래와 같이 하면 됨.
+
+```java
+import lombok.Data;
+import lombok.NoArgsConstructor;
+import org.springframework.data.annotation.CreatedDate;
+import org.springframework.data.annotation.LastModifiedDate;
+import org.springframework.data.jpa.domain.support.AuditingEntityListener;
+
+import javax.persistence.Entity;
+import javax.persistence.EntityListeners;
+import javax.persistence.GeneratedValue;
+import javax.persistence.Id;
+import java.time.LocalDateTime;
+
+@Entity
+@NoArgsConstructor
+@Data
+@EntityListeners(value = AuditingEntityListener.class)    // AuditingEntityListener 객체 호출
+public class UserHistory implements Auditable {
+
+  @Id
+  @GeneratedValue
+  private Long id;
+
+  private Long userId;
+
+  private String name;
+
+  private String email;
+
+  @CreatedDate    // *추가
+  private LocalDateTime createdAt;
+
+  @LastModifiedDate // *추가
+  private LocalDateTime updatedAt;
+}
+```
+
+직전 단락에서 만들었던 `MyEntityListener` 객체를 아예 사용하지 않고 기본적으로 제공되는 객체를 가져와서 사용함. 테스트 코드를 수정할 필요 없이 돌려보면 `createdAt`, `updatedAt` 의 데이터가 잘 작성되어 저장되는 것을 볼 수 있음.
+
+<br/>
+
+## 코드 리팩토링
+
+지금까지 3개의 Entity 를 사용했는데 모두 공통적으로 `createdAt`, `updatedAt` 을 사용하고 있음. 같은 코드의 반복은 최대한 없애는 것이 좋으니 리팩토링을 해보자.
+
+`BaseEntity` 라는 entity 를 생성하자. `@MappedSuperclass` 라는 어노테이션이 핵심.
+
+```java
+import lombok.Data;
+import org.springframework.data.annotation.CreatedDate;
+import org.springframework.data.annotation.LastModifiedDate;
+import org.springframework.data.jpa.domain.support.AuditingEntityListener;
+
+import javax.persistence.EntityListeners;
+import javax.persistence.MappedSuperclass;
+import java.time.LocalDateTime;
+
+@Data
+@MappedSuperclass   // 해당 클래스의 필드를 상속받는 Entity 의 column 으로 포함시킨다.
+@EntityListeners(value = AuditingEntityListener.class)
+public class BaseEntity {
+
+  @CreatedDate
+  private LocalDateTime createdAt;
+
+  @LastModifiedDate
+  private LocalDateTime updatedAt;
+}
+```
+
+이제 BaseEntity 를 각 entity 가 상속받아서 사용하면 된다. 이 때 `@ToString`, `@EqualsAndHashCode`, 이 두 어노테이션을 붙혀서 Superclass 의 column 을 가져올 수 있도록 하자. 상속받는 클래스까지 ToString 하고 EqualsHashCode를 비교하겠다는 의미.
+
+```java
+import com.fastcampus.jpa.bookmanager.domain.listener.Auditable;
+import com.fastcampus.jpa.bookmanager.domain.listener.UserEntityListener;
+import lombok.*;
+
+import javax.persistence.*;
+
+@NoArgsConstructor
+@AllArgsConstructor
+@RequiredArgsConstructor
+@Data
+@Builder
+@Entity
+@EntityListeners(value = UserEntityListener.class)
+@ToString(callSuper = true)
+@EqualsAndHashCode(callSuper = true)
+public class User extends BaseEntity implements Auditable  {
+  @Id
+  @GeneratedValue
+  private Long id;
+
+  @NonNull
+  private String name;
+
+  @NonNull
+  private String email;
+
+  @Enumerated(EnumType.STRING)
+  private Gender gender;
+}
+```
+
+```java
+import com.fastcampus.jpa.bookmanager.domain.listener.Auditable;
+import lombok.*;
+
+import javax.persistence.*;
+
+@Entity
+@NoArgsConstructor
+@AllArgsConstructor
+@Data
+@ToString(callSuper = true)
+@EqualsAndHashCode(callSuper = true)
+public class Book extends BaseEntity implements Auditable {
+  @Id
+  @GeneratedValue
+  private Long id;
+
+  private String name;
+
+  private String author;
+}
+```
+
+```java
+import com.fastcampus.jpa.bookmanager.domain.listener.Auditable;
+import lombok.Data;
+import lombok.EqualsAndHashCode;
+import lombok.NoArgsConstructor;
+import lombok.ToString;
+
+import javax.persistence.Entity;
+import javax.persistence.GeneratedValue;
+import javax.persistence.Id;
+
+@Entity
+@NoArgsConstructor
+@Data
+@ToString(callSuper = true)
+@EqualsAndHashCode(callSuper = true)
+public class UserHistory extends BaseEntity implements Auditable {
+
+  @Id
+  @GeneratedValue
+  private Long id;
+
+  private Long userId;
+
+  private String name;
+
+  private String email;
 }
 ```
