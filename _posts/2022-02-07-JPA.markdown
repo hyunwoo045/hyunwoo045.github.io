@@ -7,7 +7,9 @@ header:
   overlay_filter: 0.5
 
 tags:
-  - Nest.js
+  - Java
+  - Spring Boot
+  - JPA
 
 toc: true
 toc_label: "table of content"
