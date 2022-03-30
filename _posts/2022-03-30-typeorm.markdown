@@ -1,0 +1,333 @@
+---
+title: "NestJS - TypeORM (MySQL)"
+excerpt: "TypeORM 모듈로 MySQL 데이터베이스 연동하기"
+
+header:
+  overlay_image: https://images.unsplash.com/photo-1501785888041-af3ef285b470?ixlib=rb-1.2.1&ixid=eyJhcHBfaWQiOjEyMDd9&auto=format&fit=crop&w=1350&q=80
+  overlay_filter: 0.5
+
+tags:
+  - NestJS
+  - TypeORM
+  - MySQL
+
+toc: true
+toc_label: "table of content"
+toc_icon: "bars"
+toc_sticky: true
+---
+
+# TypeORM
+
+ORM = 내가 만든 객체랑 데이터베이스랑 편하게 연결/동기화 해주는 도구. 자바에는 Spring JPA 가 있듯이 타입스크립트에는 TypeORM 이 있음.
+
+---
+
+<br/>
+
+# MySQL 연동
+
+## 설치
+
+`$ npm install --save @nestjs/typeorm typeorm@0.2 mysql2`
+
+## 설정
+
+- `app.module.ts` 에 설정
+
+```ts
+import { Module } from "@nestjs/common";
+import { TypeOrmModule } from "@nestjs/typeorm";
+
+@Module({
+  imports: [
+    TypeOrmModule.forRoot({
+      type: "mysql",
+      host: "localhost",
+      port: 3306,
+      username: "root",
+      password: "root",
+      database: "test",
+      entities: [],
+      synchronize: true,
+    }),
+  ],
+})
+export class AppModule {}
+```
+
+아니면
+
+- `ormconfig.json` 파일을 루트 디렉토리에 생성
+
+```
+{
+  "type": "mysql",
+  "host": "localhost",
+  "port": 3306,
+  "username": "root",
+  "password": "root",
+  "database": "test",
+  "entities": ["dist/**/*.entity{.ts,.js}"],
+  "synchronize": true
+}
+```
+
+둘 중 하나 골라서 설정하면 되는데 난 첫 번째껄로 했음.
+
+첫 번째 방식으로 설정이 끝나면 아무 모듈에서나 `forRoot()` 를 호출할 수 있당.
+
+```ts
+import { Module } from "@nestjs/common";
+import { TypeOrmModule } from "@nestjs/typeorm";
+
+@Module({
+  imports: [TypeOrmModule.forRoot()],
+})
+export class AppModule {}
+```
+
+## Repository Pattern
+
+TypeORM 에서 repository design pattern 을 지원함. JPA 에서 `extends JpaRepository<엑, 윽>` 로 메서드를 지원 받는 것처럼 해줌. 예제를 위해 Entity를 하나 생성. 요구사항이 Nested Object로 요청하도록 되어 있는데 이건 테이블을 2개로 나누어 Relation 을 형성하도록 구성해보자.
+
+- `packageInfo.entity.ts`
+
+```ts
+import { Type } from "class-transformer";
+import { IsString, ValidateNested } from "class-validator";
+import {
+  Column,
+  Entity,
+  JoinColumn,
+  OneToOne,
+  PrimaryGeneratedColumn,
+} from "typeorm";
+import { Resource } from "./resource.entity";
+
+@Entity()
+export class PackageInfo {
+  @PrimaryGeneratedColumn()
+  id: number;
+
+  @OneToOne(() => Resource)
+  @JoinColumn()
+  @ValidateNested()
+  @Type(() => Resource)
+  resource: Resource;
+
+  @Column()
+  @IsString()
+  centerCode: string;
+
+  @Column()
+  @IsString()
+  districtCode: string;
+
+  @Column()
+  @IsString()
+  dong: string;
+
+  @Column()
+  @IsString()
+  ho: string;
+
+  @Column()
+  @IsString()
+  pkg: string;
+
+  @Column()
+  @IsString()
+  info: string;
+}
+```
+
+- `resource.entity.ts`
+
+```ts
+import { IsString } from "class-validator";
+import { Column, Entity, PrimaryGeneratedColumn } from "typeorm";
+
+@Entity()
+export class Resource {
+  @PrimaryGeneratedColumn()
+  id: number;
+
+  @Column()
+  @IsString()
+  mac: string;
+
+  @Column()
+  @IsString()
+  udid: string;
+
+  @Column()
+  @IsString()
+  model: string;
+}
+```
+
+생성한 Entity 를 사용하려면 `forRoot()` 옵션에 정의해줌으로써 TypeORM이 알 수 있도록 해야 함. 이 때 `database` 항목에 covax-db 라고 데이터베이스를 명시해주었는데, 이 데이터베이스를 사용하기 위해서는 mysql 서버에 데이터베이스를 미리 만들어두어야 한다. TypeORM 모듈은 테이블만 생성해준다.
+
+- `app.module.ts`
+
+```ts
+import { Module } from "@nestjs/common";
+import { AppController } from "./app.controller";
+import { AppService } from "./app.service";
+import { ResourcesModule } from "./resources/resources.module";
+import { TypeOrmModule } from "@nestjs/typeorm";
+import { PackageInfo } from "./resources/entities/packageInfo.entity";
+import { Resource } from "./resources/entities/resource.entity";
+
+@Module({
+  imports: [
+    ResourcesModule,
+    TypeOrmModule.forRoot({
+      type: "mysql",
+      host: "localhost",
+      port: 3306,
+      username: "root",
+      password: "",
+      database: "covax-db",
+      entities: [PackageInfo, Resource],
+      synchronize: true,
+    }),
+  ],
+  controllers: [AppController],
+  providers: [AppService],
+})
+export class AppModule {}
+```
+
+Entity 를 직접 사용할 모듈인 `ResourcesModule` 을 보자.
+
+- `resources.module.ts`
+
+```ts
+import { Module } from "@nestjs/common";
+import { TypeOrmModule } from "@nestjs/typeorm";
+import { PackageInfo } from "./entities/packageInfo.entity";
+import { Resource } from "./entities/resource.entity";
+import { ResourcesController } from "./resources.controller";
+import { ResourceService } from "./resources.service";
+
+@Module({
+  imports: [TypeOrmModule.forFeature([PackageInfo, Resource])],
+  controllers: [ResourcesController],
+  providers: [ResourceService],
+})
+export class ResourcesModule {}
+```
+
+해당 모듈에서 `forFeature()` 메서드를 사용함으로써 해당 범위 내에서 어떤 Repository가 등록되었는 지 정의한다. 곧 `ResourcesModule` 에서 `packageInfoRepository` 를 `ResourcesService` 에 `@InjectRepository()` 데코레이터를 사용하여 주입할 수 있게 됨.
+
+- `resources.service.ts`
+
+```ts
+import { Injectable } from "@nestjs/common";
+import { InjectRepository } from "@nestjs/typeorm";
+import { Repository } from "typeorm";
+import { PackageInfo } from "./entities/packageInfo.entity";
+import { Resource } from "./entities/resource.entity";
+
+@Injectable()
+export class ResourceService {
+  constructor(
+    @InjectRepository(PackageInfo)
+    private packageInfoRepository: Repository<PackageInfo>,
+    @InjectRepository(Resource)
+    private resourceRepository: Repository<Resource>
+  ) {}
+}
+```
+
+이제 Controller 에 API 를 생성하고 연동이 잘 되었는지 확인해보자.
+
+- `resources.controller.ts`
+
+```ts
+import { Body, Controller, Get, Post } from "@nestjs/common";
+import { PackageInfo } from "./entities/packageInfo.entity";
+import { ResourceService } from "./resources.service";
+
+@Controller("resource")
+export class ResourcesController {
+  constructor(private readonly resourceService: ResourceService) {}
+  @Get("/")
+  helloResourceModule(): string {
+    return "Hello Resource!";
+  }
+
+  @Post("/package_info")
+  newInvalidPackageInstalled(@Body() newPackage: PackageInfo) {
+    return this.resourceService.saveHistory(newPackage);
+  }
+}
+```
+
+- `resource.service.ts`
+
+```ts
+import { Injectable } from "@nestjs/common";
+import { InjectRepository } from "@nestjs/typeorm";
+import { Repository } from "typeorm";
+import { PackageInfo } from "./entities/packageInfo.entity";
+import { Resource } from "./entities/resource.entity";
+
+@Injectable()
+export class ResourceService {
+  constructor(
+    @InjectRepository(PackageInfo)
+    private packageInfoRepository: Repository<PackageInfo>,
+    @InjectRepository(Resource)
+    private resourceRepository: Repository<Resource>
+  ) {}
+
+  async saveHistory(p: PackageInfo): Promise<PackageInfo> {
+    try {
+      let resource = new Resource();
+      resource = { ...p.resource };
+      await this.resourceRepository.save(resource);
+      let packageInfo = new PackageInfo();
+      packageInfo = { ...p, resource };
+      packageInfo.resource = resource;
+      const result = await this.packageInfoRepository.save(packageInfo);
+      return result;
+    } catch (error) {
+      return error;
+    }
+  }
+}
+```
+
+자바에서 JPA 가 그랬듯 Repository 객체에서 많은 메서드를 지원해준다. `save()` 메서드를 추적해보면 대부분 Promise 객체를 반환하고 있으니 async/await 구문으로 동기화함.
+
+테스트해보자.
+
+```
+POST /resource/package_info
+{
+    "resource": {
+        "mac": "1234",
+        "udid": "5678",
+        "model": "CGZ-123"
+    },
+    "centerCode": "HDL",
+    "districtCode": "KT_SD1",
+    "dong": "105",
+    "ho": "203",
+    "pkg": "com.commax.covax",
+    "info": ""
+}
+```
+
+위에서 말한대로 MySQL 서버에 "covax-db" 라는 데이터베이스를 미리 만들어놓고 테스트되었어야 함. `forRoot()` 에 `synchronize: true` 로 설정해놔서 테이블은 자동 생성 됨.
+
+그림 올리기 귀찮당.. mysql 들어가서 확인해보면 'package_info', 'resource' 테이블이 2개 생성되어 있고 데이터 잘 들어가있다.
+
+<br/>
+
+## 갈무리
+
+Relation 내용이 좀 부족한데 다음 글에 써보기로
