@@ -143,3 +143,7 @@ public class RoutingDataSourceConfig {
 # 갈무리
 
 이제 본격적으로 트랜잭션을 관리해야 하는 이유가 생겼음. 잘 배워서 잘 정리해보자.
+
+출처:
+
+[Spring boot :: Datasource Replication 구현](https://wave1994.tistory.com/177)
