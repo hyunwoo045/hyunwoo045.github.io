@@ -16,11 +16,11 @@ minimal_mistakes_skin: "mint" # "air", "aqua", "contrast", "dark", "dirt", "neon
 
 # Site Settings
 locale: "ko-KR"
-title: "MOOCHI 의 블로그"
+title: "무찌 개발 일기 블로그"
 title_separator: "-"
 subtitle: # site tagline that appears below site title in masthead
 name: "김현우"
-description: "MOOCHI 의 개발 일기 블로그"
+description: "MOOCHI 개발 일기 블로그"
 url: "https://hyunwoo045.github.io"
 baseurl: "/"
 repository: "hyunwoo045/hyunwoo045.github.io"
@@ -103,7 +103,7 @@ analytics:
 author:
   name: "김 현우"
   avatar: "/assets/images/ori.png"
-  bio: "기억의 궁전은 나한텐 없다."
+  bio: "일기를 많이 쓰자!"
   location: "경기도 용인시"
   email:
   links:
