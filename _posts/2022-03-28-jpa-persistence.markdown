@@ -1,5 +1,5 @@
 ---
-title: "Spring - JPA 프로그래밍 (3)"
+title: "Spring Boot - JPA 프로그래밍 (3)"
 excerpt: "Spring Data, JPA 프로그래밍 공부 노트"
 
 header:

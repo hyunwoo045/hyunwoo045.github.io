@@ -1,0 +1,186 @@
+---
+title: "Spring Boot - AOP (관점 지향 프로그래밍)"
+excerpt:
+
+header:
+  overlay_image: https://images.unsplash.com/photo-1501785888041-af3ef285b470?ixlib=rb-1.2.1&ixid=eyJhcHBfaWQiOjEyMDd9&auto=format&fit=crop&w=1350&q=80
+  overlay_filter: 0.5
+
+tags:
+  - Spring Boot
+  - AOP
+
+toc: true
+toc_label: "table of content"
+toc_icon: "bars"
+toc_sticky: true
+---
+
+# AOP (Aspect Oriented Programming)
+
+스프링의 가장 중요한 특징 3가지 (IoC, DI, AOP) 중 하나. 객체 지향 프로그래밍을 함으로써 반복되는 코드를 많이 줄일 수 있었음에도 불구하고 아주 필수적인 코드, 예를 들어 로그나 권한 체크와 같은 코드를 없앨 수는 없었다. 개발자는 기능을 구현할 때 오로지 비즈니스 로직에만 집중하고 싶다. AOP는 "관심의 분리"다. 여러 서비스에 중복적으로 적용되는 로직을 어떻게 따로 분리시킬지 정리한다.
+
+<br/>
+
+# Gradle 설정
+
+```js
+dependencies {
+  // ...
+  implementation 'org.springframework.boot:spring-boot-starter-aop'
+}
+```
+
+<br/>
+
+# 예제 (@annotation)
+
+서비스 로직 중에 특정 api 의 경우 client 를 검증해야 하는 부분이 있어 직접 작성한 코드다. 검증의 경우 실제 서비스 로직을 실행하기 전에 해야 하니 `@Before` 사용함. `@Pointcut` 을 통해 실제 Advice 가 적용되는 Joinpoint 를 지정해주도록 하자. 이 예제의 경우 직접 생성한 `@ValiClient` 라는 어노테이션이 붙어 있는 서비스만 client 검증을 할 수 있도록 함.
+
+```java
+@Aspect  // 이 객체는 이제 AOP Bean
+@Component
+public class ValidClientAop {
+  private final ClientRepository clientRepository;
+
+  @Pointcut("@annotation(com.commax.v2.auth.common.annotation.ValidClient)")
+  private void enableCheckClient() { }
+
+  @Before("enableCheckClient()")
+  public void test(JoinPoint joinPoint) {
+    Object[] args = joinPoint.getArgs();  // 파라미터 목록을 구함.
+    for (Object obj : args) {
+      if (obj instanceof ResourceRegisterReqDto) {  // 이런 코드는 좀 의아함. api 가 늘어나면 dto 도 계속 늘어날텐데 그 땐 어떻게 할 지 생각해봐야 함.
+        String clientId = ((ResourceRegisterReqDto) obj).getClientId();
+        String clientSecret = ((ResourceRegisterReqDto) obj).getClientSecret();
+
+        Client client = clientRepository.findByClientId(clientId)
+            .orElseThrow(() -> new BaseException(ResultCode.INVALID_CLIENT, "Invalid clientId or clientSecret"));
+        if (!client.getClientSecret().equals(clientSecret)) {
+          throw new BaseException(ResultCode.INVALID_CLIENT, "Invalid clientId or clientSecret");
+        }
+      }
+    }
+  }
+}
+```
+
+`@ValidClient` 는 아래와 같이 만들었음. (커스텀 어노테이션 만드는 법 제대로 정리 함 해야함.)
+
+```java
+@Target({ElementType.TYPE, ElementType.METHOD})
+@Retention(RetentionPolicy.RUNTIME)
+public @interface ValidClient {
+}
+```
+
+그럼 이제 `@ValidClient` 라는 어노테이션이 달린 모든 비즈니스 로직은 client 검증이라는 로직을 한 번 거치고 실행될 수 있음.
+
+```java
+@Service
+public class ResourceService {
+  @ValidClient
+  public ResponseEntity<RegisterResourceResDto> resourceRegister(ResourceRegisterReqDto resourceDto) {
+    // 비즈니스 로직 :)
+  }
+```
+
+<br/>
+
+# Advice 종류
+
+- Before Advice : 위 예제에서 사용한 거임. 메서드 호출 전에 공통 기능을 실행함.
+
+- After Advice : Exception 발생 여부와 관계 없이 메서드 실행 후 공통 기능 실행.
+
+- After Returning Advice : 메서드가 exception 없이 정상 실행 된 후 공통 기능 실행.
+
+- After Throwing Advice : 메서드 실행 도중 exception 이 발생한 경우 공통 기능 실행.
+
+- Around Advice : 메서드 실행 전, 후 또는 익셉션 발생 시점에 공통 기능을 실행.
+
+<br/>
+
+## Around 예제
+
+비즈니스 로직의 수행 시간을 계산하여 로그로 찍어보는 예제를 만들어보자. 여기서도 `@Timer` 어노테이션을 만들어서 Pointcut 을 정의함. (어노테이션이 좋아요 응애)
+
+```java
+@Aspect
+@Component
+public class TimerAop {
+  @Pointcut("@annotation(com.commax.v2.auth.common.annotation.Timer)")
+  private void enableTimer() { }
+
+  @Around("enableTimer()")
+  public Object around(ProceedingJoinPoint joinPoint) throws Throwable {
+    StopWatch stopWatch = new StopWatch();
+    stopWatch.start();
+
+    Object result = joinPoint.proceed();  // 메서드를 실행함.
+
+    stopWatch.stop();
+    System.out.println("total time : " + stopWatch.getTotalTimeSeconds());
+
+    return result;
+  }
+}
+```
+
+<br/>
+
+# Pointcut 표현식
+
+`@Pointcut("@annotation(com.commax.v2.auth.common.annotation.Timer)")` 와 같이 특정 어노테이션이 달린 비즈니스 로직에만 Advice 를 적용할 수 있도록 할 수 있었다. 어노테이션 뿐 아니라 다른 방식으로도 advice 를 적용할 수 있음.
+
+<br/>
+
+## 지시자의 종류
+
+- `execution` : 리턴 타입, 패키지 경로, 클래스명, 메서드명 등을 지정함으로써 정교하게 Pointcut 을 만들 수 있음.
+- `within` : 타입 패턴 내 해당하는 모든 것들을 Pointcut 으로 설정
+- `bean` : Bean 이름으로 Pointcut
+
+<br/>
+
+## Return 타입 지정
+
+| 표현식 | 설명                                |
+| ------ | ----------------------------------- |
+| \*     | 모든 리턴타입 허용                  |
+| void   | 리턴 타입이 void인 메서드 선택      |
+| !void  | 리턴 타입이 void가 아닌 메서드 선택 |
+
+<br/>
+
+## 패키지 지정
+
+| 표현식                          | 설명                                                     |
+| ------------------------------- | -------------------------------------------------------- |
+| `com.example.auth`              | com.example.auth 패키지만 선택                           |
+| `com.example.auth.controller..` | com.example.auth.controller 로 시작하는 모든 패키지 선택 |
+
+<br/>
+
+## 클래스 지정
+
+| 표현식          | 설명                                                                                                                     |
+| --------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| RegisterService | RegisterService 클래스만 선택                                                                                            |
+| \*Controller    | controller 로 끝나는 클래스만 선택                                                                                       |
+| BaseService     | 클래스 뒤에 +가 붙으면 해당 객체의 모든 자식 클래스 선택 <br/> 인터페이스 뒤에 붙으면 해당 인터페이스를 구현한 객체 선택 |
+
+우선은 이정도만 알아도 되지 않을까 싶음.
+
+<br/>
+
+# 갈무리
+
+뒤늦게나마 스프링의 핵심 특징이란 걸 알게 되어서 다행이라고 생각함. 나같은 응애 자바 개발자도 AOP 는 정말 좋은 기능이라고 생각한다. 더 써 보면서 알게되는 것들을 잘 정리해보자.
+
+<br/>
+
+## 참고 자료
+
+- [[Spring] AOP (관점 지향 프로그래밍)](https://velog.io/@gillog/AOP%EA%B4%80%EC%A0%90-%EC%A7%80%ED%96%A5-%ED%94%84%EB%A1%9C%EA%B7%B8%EB%9E%98%EB%B0%8D#joinpoint-%EC%9D%B8%ED%84%B0%ED%8E%98%EC%9D%B4%EC%8A%A4)
+- [JoinPoint 의 사용](https://snoopy81.tistory.com/295)
