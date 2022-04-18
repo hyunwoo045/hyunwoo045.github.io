@@ -63,3 +63,23 @@ ENV SPRING_PROFILES_ACTIVE=${ENVIRONMENT}
 EXPOSE 8080
 ENTRYPOINT ["java", "-jar", "/app.jar"]
 ```
+
+1. `FROM ...`: 각자 프로젝트에 알맞는 jdk 버전으로 빌드 (alpine 버전이 있다면 용량이 훨씬 작아 그걸로 하는게 좋음)
+2. gradle 프로젝트에 알맞는 방식으로 빌드
+3. `ARG ENVIRONMENT`: 빌드 시 ENVIRONMENT 라는 환경 변수를 받도록 함.
+4. `SPRING_PROFILES_ACTIVE` 에 적용 시킴으로써 profile 을 설정함.
+5. 네
+
+그래서 실제로 도커 이미지 빌드 명령을 입력할 때 `ENVIRONMENT` 환경 변수를 설정해주면 된다. 아래는 예시 명령
+
+```sh
+$ docker build --build-arg ENVIRONMENT=dev -t example-auth:0.0.1 .
+```
+
+이 후에 push 하고 서버에서 pull 하고 run 시켜보면 잘 동작할 거임...
+
+<br/>
+
+# 갈무리
+
+뭔가 쉽게 잘 되서 찝찝하다.
