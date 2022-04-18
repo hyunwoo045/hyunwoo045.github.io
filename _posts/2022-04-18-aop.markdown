@@ -89,15 +89,15 @@ public class ResourceService {
 
 # Advice 종류
 
-- Before Advice : 위 예제에서 사용한 거임. 메서드 호출 전에 공통 기능을 실행함.
+- Before Advice (`@Before`) : 위 예제에서 사용한 거임. 메서드 호출 전에 공통 기능을 실행함.
 
-- After Advice : Exception 발생 여부와 관계 없이 메서드 실행 후 공통 기능 실행.
+- After Advice (`@After`) : Exception 발생 여부와 관계 없이 메서드 실행 후 공통 기능 실행.
 
-- After Returning Advice : 메서드가 exception 없이 정상 실행 된 후 공통 기능 실행.
+- After Returning Advice (`@AfterReturning`) : 메서드가 exception 없이 정상 실행 된 후 공통 기능 실행.
 
-- After Throwing Advice : 메서드 실행 도중 exception 이 발생한 경우 공통 기능 실행.
+- After Throwing Advice (`@AfterThrowing`) : 메서드 실행 도중 exception 이 발생한 경우 공통 기능 실행.
 
-- Around Advice : 메서드 실행 전, 후 또는 익셉션 발생 시점에 공통 기능을 실행.
+- Around Advice (`@Around`) : 메서드 실행 전, 후 또는 익셉션 발생 시점에 공통 기능을 실행.
 
 <br/>
 
