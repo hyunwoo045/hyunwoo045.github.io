@@ -42,6 +42,12 @@ Spring boot 2.4 버전 이 전에 사용하던 방식이 있었는데 deprecated
 
 # Spring Boot (Gradle) Docker 이미지 빌드
 
+Docker container 로 프로젝트를 실행할 때 profile 을 설정하는 방법을 우선 2가지만 정리해봄.
+
+<br/>
+
+## Docker build 할 때 Argumnet 설정
+
 쉽게 해보자. 우선 Dockerfile 생성
 
 ```docker
@@ -80,6 +86,51 @@ $ docker build --build-arg ENVIRONMENT=dev -t example-auth:0.0.1 .
 
 <br/>
 
+## Docker run 할 때 환경변수 설정
+
+위 방법대로 해도 문제는 없겠지만 profile 이 바뀔 때 마다 새로 build 를 해줘야 하는 번거로움이 있음. 그래서 `docker run` 할 때 컨테이너 환경 변수를 지정해주고 entrypoint 에서 환경 변수를 가져다가 proifle 을 지정해주는 것이 사실 내 생각엔 제일 깔끔하지 않나 생각함. 어쨌든 Dockerfile 부터 수정해보자.
+
+```docker
+FROM openjdk:11 AS builder
+COPY gradlew .
+COPY gradle gradle
+COPY build.gradle .
+COPY settings.gradle .
+COPY src src
+RUN chmod +x ./gradlew
+RUN ./gradlew bootJar
+
+FROM openjdk:11
+COPY --from=builder build/libs/*.jar app.jar
+
+EXPOSE 8080
+ENTRYPOINT ["java", "-Dspring.profiles.active=${SERVER_MODE}", "-jar", "/app.jar"]
+```
+
+빌드할 때 `ARGUMENT` 를 받아 `SPRING_PROFILE_ACTIVE` 에 적용하는 코드를 아예 삭제함. 그리고 직접 jar 파일을 실행하는 명령어를 실행할 때 컨테이너의 환경 변수, `SERVER_MODE` 를 받아 실행하도록 함.
+
+그럼 이제 build 할 때는 특별한 옵션 없이 빌드하면 되고,
+
+```bash
+$ docker build -t example-auth:0.0.1 .
+```
+
+run 할 때 `-e` 옵션을 이용하여 환경 변수를 전달하며 실행하도록 하자.
+
+```bash
+$ docker run --name example-auth -d -p 8080:8080 -e SERVER_MODE=dev example-auth:0.0.1
+```
+
+<br/>
+
 # 갈무리
 
 뭔가 쉽게 잘 되서 찝찝하다.
+
+<br/>
+
+## 참고자료
+
+- [Spring-boot Profile 도커 Runtime에 적용하기](https://cubenuri.tistory.com/417)
+- [Spring 환경에서 Docker run으로 jar에 argument 전달하기](https://imksh.com/94)
+- [[Spring] profile로 서버 환경에 맞는 Context 적용하기(-Dspring.profiles.active)](https://velog.io/@gillog/Spring-profile%EB%A1%9C-%EC%84%9C%EB%B2%84-%ED%99%98%EA%B2%BD%EC%97%90-%EB%A7%9E%EB%8A%94-Context-%EC%A0%81%EC%9A%A9%ED%95%98%EA%B8%B0-Dspring.profiles.active)
