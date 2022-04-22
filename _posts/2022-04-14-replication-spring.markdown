@@ -146,4 +146,4 @@ public class RoutingDataSourceConfig {
 
 출처:
 
-[Spring boot :: Datasource Replication 구현](https://wave1994.tistory.com/177)
+- [Spring boot :: Datasource Replication 구현](https://wave1994.tistory.com/177)
