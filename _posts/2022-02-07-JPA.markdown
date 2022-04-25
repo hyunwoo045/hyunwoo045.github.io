@@ -1,6 +1,6 @@
 ---
-title: "Spring Boot - JPA 프로그래밍"
-excerpt: "Spring Data, JPA 프로그래밍 공부 노트"
+title: "Spring Boot JPA (1) - Entity, Repository"
+excerpt: "JPA 를 이용하여 데이터베이스를 구축해보자."
 
 header:
   overlay_image: https://images.unsplash.com/photo-1501785888041-af3ef285b470?ixlib=rb-1.2.1&ixid=eyJhcHBfaWQiOjEyMDd9&auto=format&fit=crop&w=1350&q=80
